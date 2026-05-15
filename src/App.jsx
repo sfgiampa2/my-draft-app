@@ -22,6 +22,28 @@ const P = {
 
 const COLORS = [P.navy, P.red, P.steel, P.lime, P.amber, P.cyan, P.sky, "#7C5CBF", "#E17055", "#74B9FF"];
 
+// ─── Alias → Real Name Map ────────────────────────────────────────────────────
+const ALIAS_MAP = {
+  // Joe
+  "JB":"Joe", "Jolly Rancher":"Joe", "Fiancee":"Joe", "Jellyfish":"Joe",
+  // Olivia
+  "OP":"Olivia", "Peppermint Patty":"Olivia", "Flake":"Olivia",
+  // Talal
+  "TA":"Talal", "Twix":"Talal",
+  // Cat
+  "CC":"Cat", "Kit Kat":"Cat", "Everyone hates me":"Cat", "Crocodile":"Cat",
+  // Scott
+  "SG":"Scott", "Snickers":"Scott", "GOAT":"Scott", "Captain":"Scott", "Salamander":"Scott",
+  // Tom
+  "TS":"Tom", "Twizzler":"Tom", "Toad":"Tom", "The Only Tom":"Tom",
+  // Direct names pass through
+  "Joe":"Joe", "Olivia":"Olivia", "Talal":"Talal", "Cat":"Cat", "Scott":"Scott", "Tom":"Tom",
+};
+
+function resolveName(name) {
+  return ALIAS_MAP[name] || name;
+}
+
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 const SEED_DRAFTS = [
   {
@@ -201,16 +223,16 @@ const SEED_DRAFTS = [
 ];
 
 const SEASON1_SCORES = [
-  { week:"Week 1: Fruits",           scores:{ OP:0, TA:1, SG:3, CC:3, TS:0, JB:0 } },
-  { week:"Week 2: Apps",             scores:{ OP:3, TA:0, SG:0, CC:0, TS:0, JB:0 } },
-  { week:"Week 3: Rotation",         scores:{ OP:0, TA:0, SG:3, CC:0, TS:0, JB:0 } },
-  { week:"Week 4: Feelings",         scores:{ OP:1, TA:3, SG:0, CC:2, TS:0, JB:0 } },
-  { week:"Week 5: Months",           scores:{ OP:2, TA:0, SG:3, CC:0, TS:0, JB:0 } },
-  { week:"Week 6: Candies",          scores:{ OP:0, TA:0, SG:2, CC:1, TS:0, JB:3 } },
-  { week:"Week 7: Childhood TV",     scores:{ OP:2, TA:0, SG:0, CC:0, TS:3, JB:1 } },
-  { week:"Week 8: Buzzwords",        scores:{ OP:2, TA:0, SG:0, CC:1, TS:3, JB:0 } },
-  { week:"Week 9: 2000s Bangers",    scores:{ OP:0, TA:3, SG:1, CC:2, TS:0, JB:0 } },
-  { week:"Week 10: Zoo Animals",     scores:{ OP:0, TA:0, SG:1, CC:3, TS:2, JB:0 } },
+  { week:"Week 1: Fruits",           scores:{ Olivia:0, Talal:1, Scott:3, Cat:3, Tom:0, Joe:0 } },
+  { week:"Week 2: Apps",             scores:{ Olivia:3, Talal:0, Scott:0, Cat:0, Tom:0, Joe:0 } },
+  { week:"Week 3: Rotation",         scores:{ Olivia:0, Talal:0, Scott:3, Cat:0, Tom:0, Joe:0 } },
+  { week:"Week 4: Feelings",         scores:{ Olivia:1, Talal:3, Scott:0, Cat:2, Tom:0, Joe:0 } },
+  { week:"Week 5: Months",           scores:{ Olivia:2, Talal:0, Scott:3, Cat:0, Tom:0, Joe:0 } },
+  { week:"Week 6: Candies",          scores:{ Olivia:0, Talal:0, Scott:2, Cat:1, Tom:0, Joe:3 } },
+  { week:"Week 7: Childhood TV",     scores:{ Olivia:2, Talal:0, Scott:0, Cat:0, Tom:3, Joe:1 } },
+  { week:"Week 8: Buzzwords",        scores:{ Olivia:2, Talal:0, Scott:0, Cat:1, Tom:3, Joe:0 } },
+  { week:"Week 9: 2000s Bangers",    scores:{ Olivia:0, Talal:3, Scott:1, Cat:2, Tom:0, Joe:0 } },
+  { week:"Week 10: Zoo Animals",     scores:{ Olivia:0, Talal:0, Scott:1, Cat:3, Tom:2, Joe:0 } },
 ];
 
 const SEASON2_SCORES = [];
@@ -243,9 +265,10 @@ function computeTotalsFromVotes(votes, drafters) {
 function getLeaderboard(scores) {
   const players = {};
   scores.forEach(({ week, scores: ws }) => {
-    Object.entries(ws).forEach(([p, pts]) => {
+    Object.entries(ws).forEach(([alias, pts]) => {
+      const p = resolveName(alias);
       if (!players[p]) players[p] = { total:0, weeks:{}, weeksPlayed:0 };
-      players[p].weeks[week] = pts;
+      players[p].weeks[week] = (players[p].weeks[week] || 0) + pts;
       players[p].total += pts;
       players[p].weeksPlayed++;
     });
@@ -816,7 +839,8 @@ function LeaderboardView({ onBack }) {
 
   const wins = {};
   SEED_DRAFTS.filter(d => d.season===season && d.status==="voted" && d.winner).forEach(d => {
-    wins[d.winner] = (wins[d.winner]||0) + 1;
+    const realName = resolveName(d.winner);
+    wins[realName] = (wins[realName]||0) + 1;
   });
   const winData = Object.entries(wins).sort((a,b)=>b[1]-a[1]);
 
@@ -928,7 +952,7 @@ function LeaderboardView({ onBack }) {
             {SEED_DRAFTS.filter(d=>d.season===season&&d.status==="voted").map(d => (
               <div key={d.id} style={{ ...styles.resultRow, marginBottom:8 }}>
                 <span style={{ flex:1, fontSize:13, color:"#555" }}>W{d.week}: {d.category}</span>
-                <span style={{ fontWeight:700, color:P.navy, fontSize:13 }}>🏆 {d.winner}</span>
+                <span style={{ fontWeight:700, color:P.navy, fontSize:13 }}>🏆 {resolveName(d.winner)}</span>
               </div>
             ))}
           </div>
