@@ -318,9 +318,12 @@ export default function App() {
     newPicks[drafter] = [...(newPicks[drafter]||[]), pick.trim()];
     const totalPicks = Object.values(newPicks).flat().length;
     const totalExpected = d.drafters.length * d.numPicks;
-    const nextDrafter = (draftState.currentDrafter + 1) % d.drafters.length;
-    const nextRound = nextDrafter === 0 ? draftState.currentRound + 1 : draftState.currentRound;
-    setDraftState({ picks: newPicks, currentRound: nextRound, currentDrafter: nextDrafter });
+    // Snake draft: even rounds go 0..n-1, odd rounds go n-1..0
+    const n = d.drafters.length;
+    const nextRound = Math.floor(totalPicks / n);
+    const posInRound = totalPicks % n;
+    const nextDrafterIdx = nextRound % 2 === 0 ? posInRound : (n - 1 - posInRound);
+    setDraftState({ picks: newPicks, currentRound: nextRound, currentDrafter: nextDrafterIdx });
     if (totalPicks >= totalExpected) {
       const updated = { ...d, picks: newPicks, status:"voting" };
       setActiveDraft(updated);
@@ -364,6 +367,11 @@ export default function App() {
     setView("results");
   }
 
+  function deleteDraft(id) {
+    if (!window.confirm("Delete this draft? This can't be undone.")) return;
+    setDrafts(prev => prev.filter(d => d.id !== id));
+  }
+
   return (
     <div style={styles.root}>
       {notification && (
@@ -377,7 +385,7 @@ export default function App() {
       {view==="vote"        && activeDraft && <VoteView draft={activeDraft} voteState={voteState} setVoteState={setVoteState} onSubmit={submitVote} onFinalize={finalizeDraft} onBack={()=>setView("home")} />}
       {view==="results"     && activeDraft && <ResultsView draft={activeDraft} onNewDraft={startSetup} onLeaderboard={()=>setView("leaderboard")} onBack={()=>setView("home")} />}
       {view==="leaderboard" && <LeaderboardView onBack={()=>setView("home")} />}
-      {view==="history"     && <HistoryView drafts={drafts} onView={d=>{setActiveDraft(d);setView("results");}} onVote={loadDraftForVoting} onBack={()=>setView("home")} />}
+      {view==="history"     && <HistoryView drafts={drafts} onView={d=>{setActiveDraft(d);setView("results");}} onVote={loadDraftForVoting} onDelete={deleteDraft} onBack={()=>setView("home")} />}
     </div>
   );
 }
@@ -887,7 +895,7 @@ function LeaderboardView({ onBack }) {
 }
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
-function HistoryView({ drafts, onView, onVote, onBack }) {
+function HistoryView({ drafts, onView, onVote, onDelete, onBack }) {
   const seasons = [...new Set(drafts.map(d=>d.season))].sort();
   const [selectedSeason, setSelectedSeason] = useState(seasons[0]||1);
   const filtered = drafts.filter(d=>d.season===selectedSeason);
@@ -918,9 +926,18 @@ function HistoryView({ drafts, onView, onVote, onBack }) {
                 {d.status==="voted"&&winner?`Winner: ${winner[0]}`:d.status}
               </div>
             </div>
-            <button style={styles.btnSmall} onClick={()=>d.status==="voted"?onView(d):onVote(d)}>
-              {d.status==="voted"?"Results":"Vote"}
-            </button>
+            <div style={{ display:"flex", gap:8 }}>
+              <button style={styles.btnSmall} onClick={()=>d.status==="voted"?onView(d):onVote(d)}>
+                {d.status==="voted"?"Results":"Vote"}
+              </button>
+              <button
+                style={{ ...styles.btnSmall, borderColor:P.red, color:P.red, padding:"8px 10px" }}
+                onClick={()=>onDelete(d.id)}
+                title="Delete draft"
+              >
+                🗑
+              </button>
+            </div>
           </div>
         );
       })}
