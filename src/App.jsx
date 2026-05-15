@@ -288,7 +288,7 @@ function buildShareLink(draftId) {
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [view, setView] = useState("home");
+  const [view, setView] = useState("home"); // home|setup|wheel|draft|vote|results|leaderboard|history
   const [drafts, setDrafts] = useState([]);
   const [activeDraft, setActiveDraft] = useState(null);
   const [setupData, setSetupData] = useState({ category:"", season:1, week:1, drafters:[], numPicks:5 });
@@ -338,28 +338,41 @@ export default function App() {
   }
 
   function startSetup() {
-    setSetupData({ category:"", season:1, week:1, drafters:[], numPicks:5 });
+    setSetupData({ category:"", season:1, week:2, drafters:[], drafterDetails:{}, numPicks:5, imageFile:null, imageUrl:null });
     setView("setup");
   }
 
-  function createDraft() {
+  async function createDraft(orderedDrafters) {
     if (!setupData.category.trim()) return notify("Add a category name","error");
-    if (setupData.drafters.length < 2) return notify("Need at least 2 drafters","error");
+    if (!orderedDrafters || orderedDrafters.length < 2) return notify("Need at least 2 drafters","error");
+    let imageUrl = null;
+    if (setupData.imageFile) {
+      const ext = setupData.imageFile.name.split(".").pop();
+      const path = `drafts/${Date.now()}.${ext}`;
+      const { data: upData, error: upErr } = await supabase.storage
+        .from("draft-images").upload(path, setupData.imageFile);
+      if (!upErr) {
+        const { data: urlData } = supabase.storage.from("draft-images").getPublicUrl(path);
+        imageUrl = urlData.publicUrl;
+      }
+    }
     const newDraft = {
       id: "d" + Date.now(),
       category: setupData.category,
       season: setupData.season,
       week: setupData.week,
       status: "drafting",
-      drafters: setupData.drafters,
+      drafters: orderedDrafters,
+      drafterDetails: setupData.drafterDetails,
       numPicks: setupData.numPicks,
-      picks: Object.fromEntries(setupData.drafters.map(d=>[d,[]])),
+      picks: Object.fromEntries(orderedDrafters.map(d=>[d,[]])),
       votes: {},
       totals: {},
+      imageUrl,
     };
     setDrafts(prev => [...prev, newDraft]);
     setActiveDraft(newDraft);
-    setDraftState({ picks: Object.fromEntries(setupData.drafters.map(d=>[d,[]])), currentRound:0, currentDrafter:0 });
+    setDraftState({ picks: Object.fromEntries(orderedDrafters.map(d=>[d,[]])), currentRound:0, currentDrafter:0 });
     saveDraft(newDraft);
     setView("draft");
   }
@@ -398,6 +411,10 @@ export default function App() {
     const { voterName, rankings } = voteState;
     if (!voterName.trim()) return notify("Enter your name","error");
     const drafters = activeDraft.drafters;
+    const existingVoters = Object.keys(activeDraft.votes||{});
+    if (existingVoters.map(v=>v.toLowerCase()).includes(voterName.trim().toLowerCase())) {
+      return notify(`${voterName} has already voted!`, "error");
+    }
     const voterIsDrafter = drafters.includes(voterName.trim());
     const draftersToRank = drafters.filter(d => d !== voterName.trim());
     const ranked = Object.values(rankings).filter(v => v !== "" && v !== undefined);
@@ -447,11 +464,12 @@ export default function App() {
         </div>
       )}
       {view==="home"        && <HomeView drafts={drafts} onNew={startSetup} onLeaderboard={()=>setView("leaderboard")} onHistory={()=>setView("history")} onVote={loadDraftForVoting} onResults={d=>{setActiveDraft(d);setView("results");}} />}
-      {view==="setup"       && <SetupView data={setupData} setData={setSetupData} onCreate={createDraft} onBack={()=>setView("home")} />}
+      {view==="setup"       && <SetupView data={setupData} setData={setSetupData} onNext={()=>setView("wheel")} onBack={()=>setView("home")} />}
+      {view==="wheel"       && <WheelView drafters={setupData.drafters} drafterDetails={setupData.drafterDetails} onCreate={createDraft} onBack={()=>setView("setup")} />}
       {view==="draft"       && activeDraft && <DraftView draft={activeDraft} state={draftState} onPick={submitPick} onBack={()=>setView("home")} />}
       {view==="vote"        && activeDraft && <VoteView draft={activeDraft} voteState={voteState} setVoteState={setVoteState} onSubmit={submitVote} onFinalize={finalizeDraft} onBack={()=>setView("home")} />}
       {view==="results"     && activeDraft && <ResultsView draft={activeDraft} onNewDraft={startSetup} onLeaderboard={()=>setView("leaderboard")} onBack={()=>setView("home")} />}
-      {view==="leaderboard" && <LeaderboardView onBack={()=>setView("home")} />}
+      {view==="leaderboard" && <LeaderboardView drafts={drafts} onBack={()=>setView("home")} />}
       {view==="history"     && <HistoryView drafts={drafts} onView={d=>{setActiveDraft(d);setView("results");}} onVote={loadDraftForVoting} onDelete={deleteDraft} onBack={()=>setView("home")} />}
     </div>
   );
@@ -516,17 +534,43 @@ function HomeView({ drafts, onNew, onLeaderboard, onHistory, onVote, onResults }
 }
 
 // ─── SETUP ────────────────────────────────────────────────────────────────────
-function SetupView({ data, setData, onCreate, onBack }) {
-  const [newDrafter, setNewDrafter] = useState("");
+function SetupView({ data, setData, onNext, onBack }) {
+  const [nickname, setNickname] = useState("");
+  const [realName, setRealName] = useState("");
+  const [color, setColor] = useState("#1D3169");
+
   function addDrafter() {
-    if (!newDrafter.trim()) return;
-    setData(d => ({ ...d, drafters: [...d.drafters, newDrafter.trim()] }));
-    setNewDrafter("");
+    if (!nickname.trim()) return;
+    const key = nickname.trim();
+    setData(d => ({
+      ...d,
+      drafters: [...d.drafters, key],
+      drafterDetails: {
+        ...d.drafterDetails,
+        [key]: { realName: realName.trim() || key, color: color }
+      }
+    }));
+    setNickname(""); setRealName(""); setColor("#1D3169");
   }
+
+  function removeDrafter(i) {
+    setData(d => {
+      const removed = d.drafters[i];
+      const newDetails = { ...d.drafterDetails };
+      delete newDetails[removed];
+      return { ...d, drafters: d.drafters.filter((_,j)=>j!==i), drafterDetails: newDetails };
+    });
+  }
+
+  function canProceed() {
+    return data.category.trim() && data.drafters.length >= 2;
+  }
+
   return (
     <div style={styles.page}>
       <button style={styles.backBtn} onClick={onBack}>← Back</button>
       <h1 style={styles.pageTitle}>New Draft</h1>
+
       <div style={styles.card}>
         <label style={styles.label}>Category</label>
         <input style={styles.input} placeholder="e.g. Best Pizza Toppings…" value={data.category} onChange={e=>setData(d=>({...d,category:e.target.value}))} />
@@ -544,22 +588,181 @@ function SetupView({ data, setData, onCreate, onBack }) {
             <input style={styles.input} type="number" min="1" max="20" value={data.numPicks} onChange={e=>setData(d=>({...d,numPicks:+e.target.value}))} />
           </div>
         </div>
-        <label style={styles.label}>Drafters</label>
-        <div style={styles.drafterList}>
-          {data.drafters.map((d,i) => (
-            <div key={i} style={styles.drafterChip}>
-              <span style={{ background:COLORS[i%COLORS.length], ...styles.chipDot }} />
-              {d}
-              <button style={styles.chipX} onClick={()=>setData(dd=>({...dd,drafters:dd.drafters.filter((_,j)=>j!==i)}))}>×</button>
-            </div>
-          ))}
-        </div>
-        <div style={styles.row}>
-          <input style={{...styles.input,flex:1,marginBottom:0}} placeholder="Drafter name" value={newDrafter} onChange={e=>setNewDrafter(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addDrafter()} />
-          <button style={styles.btnSmall} onClick={addDrafter}>Add</button>
-        </div>
-        <button style={{...styles.btnPrimary, marginTop:24, width:"100%"}} onClick={onCreate}>Start Draft →</button>
+
+        <label style={styles.label}>Draft Image (optional)</label>
+        <input type="file" accept="image/*" style={{ ...styles.input, padding:"8px" }}
+          onChange={e => setData(d=>({...d, imageFile: e.target.files[0]||null}))} />
+        {data.imageFile && <div style={{ fontSize:12, color:P.navy, marginBottom:8 }}>📷 {data.imageFile.name}</div>}
       </div>
+
+      <div style={styles.card}>
+        <label style={styles.label}>Add Drafters</label>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+          <div>
+            <label style={{ ...styles.label, fontSize:10 }}>Nickname / Alias</label>
+            <input style={{...styles.input, marginBottom:0}} placeholder="e.g. Jolly Rancher" value={nickname} onChange={e=>setNickname(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addDrafter()} />
+          </div>
+          <div>
+            <label style={{ ...styles.label, fontSize:10 }}>Real Name</label>
+            <input style={{...styles.input, marginBottom:0}} placeholder="e.g. Joe" value={realName} onChange={e=>setRealName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addDrafter()} />
+          </div>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
+          <div>
+            <label style={{ ...styles.label, fontSize:10 }}>Color</label>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <input type="color" value={color} onChange={e=>setColor(e.target.value)} style={{ width:40, height:36, border:"none", borderRadius:6, cursor:"pointer", padding:2 }} />
+              <input style={{ ...styles.input, width:100, marginBottom:0, fontFamily:"monospace", fontSize:13 }} placeholder="#1D3169" value={color} onChange={e=>setColor(e.target.value)} />
+            </div>
+          </div>
+          <button style={{ ...styles.btnSmall, marginTop:20 }} onClick={addDrafter}>+ Add</button>
+        </div>
+
+        {data.drafters.length > 0 && (
+          <div style={{ marginTop:8 }}>
+            <label style={styles.label}>Drafters ({data.drafters.length})</label>
+            {data.drafters.map((d,i) => {
+              const det = data.drafterDetails?.[d] || {};
+              const c = det.color || COLORS[i%COLORS.length];
+              return (
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:"1px solid #f0ede9" }}>
+                  <div style={{ width:14, height:14, borderRadius:"50%", background:c, flexShrink:0 }} />
+                  <div style={{ flex:1 }}>
+                    <span style={{ fontWeight:700, color:P.navy }}>{d}</span>
+                    {det.realName && det.realName !== d && <span style={{ color:"#aaa", fontSize:12, marginLeft:6 }}>({det.realName})</span>}
+                  </div>
+                  <button style={styles.chipX} onClick={()=>removeDrafter(i)}>×</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <button style={{...styles.btnPrimary, width:"100%", opacity: canProceed()?1:0.4}}
+        onClick={()=>canProceed()&&onNext()}>
+        Spin for Draft Order →
+      </button>
+    </div>
+  );
+}
+
+// ─── WHEEL VIEW ───────────────────────────────────────────────────────────────
+function WheelView({ drafters, drafterDetails, onCreate, onBack }) {
+  const [spinning, setSpinning] = useState(false);
+  const [angle, setAngle] = useState(0);
+  const [result, setResult] = useState(null);
+  const [orderedDrafters, setOrderedDrafters] = useState(null);
+
+  const n = drafters.length;
+  const sliceAngle = 360 / n;
+
+  function getColor(name, i) {
+    return drafterDetails?.[name]?.color || COLORS[i % COLORS.length];
+  }
+
+  function spin() {
+    if (spinning || result) return;
+    setSpinning(true);
+    const extraSpins = 5 * 360;
+    const randomOffset = Math.floor(Math.random() * 360);
+    const targetAngle = angle + extraSpins + randomOffset;
+    setAngle(targetAngle);
+    setTimeout(() => {
+      setSpinning(false);
+      // Figure out which slice is at the top (270 degrees = top of wheel)
+      const normalized = ((targetAngle % 360) + 360) % 360;
+      const pointer = (360 - normalized + 270) % 360;
+      const winnerIdx = Math.floor(pointer / sliceAngle) % n;
+      // Build order starting from winner
+      const ordered = [];
+      for (let i = 0; i < n; i++) ordered.push(drafters[(winnerIdx + i) % n]);
+      setOrderedDrafters(ordered);
+      setResult(ordered[0]);
+    }, 4000);
+  }
+
+  function buildWheelPath(i) {
+    const startAngle = (i * sliceAngle - 90) * (Math.PI / 180);
+    const endAngle = ((i + 1) * sliceAngle - 90) * (Math.PI / 180);
+    const r = 140;
+    const cx = 150, cy = 150;
+    const x1 = cx + r * Math.cos(startAngle);
+    const y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle);
+    const y2 = cy + r * Math.sin(endAngle);
+    const large = sliceAngle > 180 ? 1 : 0;
+    return `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z`;
+  }
+
+  function getLabelPos(i) {
+    const midAngle = ((i + 0.5) * sliceAngle - 90) * (Math.PI / 180);
+    const r = 95;
+    return { x: 150 + r * Math.cos(midAngle), y: 150 + r * Math.sin(midAngle) };
+  }
+
+  return (
+    <div style={styles.page}>
+      <button style={styles.backBtn} onClick={onBack}>← Back</button>
+      <h1 style={styles.pageTitle}>Draft Order</h1>
+      <p style={styles.draftMeta}>Spin to determine who picks first!</p>
+
+      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", margin:"24px 0" }}>
+        {/* Pointer */}
+        <div style={{ width:0, height:0, borderLeft:"12px solid transparent", borderRight:"12px solid transparent", borderTop:`24px solid ${P.red}`, marginBottom:-2, zIndex:2 }} />
+
+        {/* Wheel */}
+        <div style={{ transition: spinning ? "transform 4s cubic-bezier(0.17,0.67,0.12,0.99)" : "none", transform:`rotate(${angle}deg)` }}>
+          <svg width="300" height="300" viewBox="0 0 300 300">
+            {drafters.map((d, i) => {
+              const pos = getLabelPos(i);
+              const shortName = d.length > 8 ? d.slice(0,7)+"…" : d;
+              return (
+                <g key={d}>
+                  <path d={buildWheelPath(i)} fill={getColor(d, i)} stroke="#fff" strokeWidth="2" />
+                  <text x={pos.x} y={pos.y} textAnchor="middle" dominantBaseline="middle"
+                    style={{ fontSize: n > 6 ? 9 : 11, fontWeight:700, fill:"#fff", fontFamily:"Segoe UI, sans-serif", pointerEvents:"none", textShadow:"0 1px 2px rgba(0,0,0,0.4)" }}>
+                    {shortName}
+                  </text>
+                </g>
+              );
+            })}
+            <circle cx="150" cy="150" r="20" fill="#fff" stroke={P.warmGrey} strokeWidth="2" />
+          </svg>
+        </div>
+
+        {!result && (
+          <button style={{ ...styles.btnPrimary, marginTop:24, padding:"14px 40px", fontSize:16 }} onClick={spin} disabled={spinning}>
+            {spinning ? "Spinning…" : "🎰 Spin!"}
+          </button>
+        )}
+      </div>
+
+      {result && orderedDrafters && (
+        <div style={styles.card}>
+          <div style={{ textAlign:"center", marginBottom:16 }}>
+            <div style={{ fontSize:32, marginBottom:4 }}>🎉</div>
+            <div style={{ fontSize:20, fontWeight:800, color:P.navy }}>{result} picks first!</div>
+          </div>
+          <div style={styles.label}>Draft Order</div>
+          {orderedDrafters.map((d, i) => {
+            const det = drafterDetails?.[d] || {};
+            const c = det.color || COLORS[drafters.indexOf(d) % COLORS.length];
+            return (
+              <div key={d} style={{ display:"flex", alignItems:"center", gap:12, padding:"8px 0", borderBottom:"1px solid #f0ede9" }}>
+                <span style={{ fontWeight:700, color:"#bbb", minWidth:24 }}>#{i+1}</span>
+                <div style={{ width:12, height:12, borderRadius:"50%", background:c }} />
+                <span style={{ flex:1, fontWeight:600, color:P.navy }}>{d}</span>
+                {det.realName && det.realName !== d && <span style={{ fontSize:12, color:"#aaa" }}>{det.realName}</span>}
+              </div>
+            );
+          })}
+          <div style={{ display:"flex", gap:8, marginTop:20 }}>
+            <button style={{ ...styles.btnSmall, flex:1 }} onClick={()=>{ setResult(null); setOrderedDrafters(null); setAngle(0); }}>Re-spin</button>
+            <button style={{ ...styles.btnPrimary, flex:2 }} onClick={()=>onCreate(orderedDrafters)}>Start Draft →</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -568,7 +771,7 @@ function SetupView({ data, setData, onCreate, onBack }) {
 function DraftView({ draft, state, onPick, onBack }) {
   const [pick, setPick] = useState("");
   const drafter = draft.drafters[state.currentDrafter];
-  const color = COLORS[state.currentDrafter % COLORS.length];
+  const color = draft.drafterDetails?.[drafter]?.color || COLORS[state.currentDrafter % COLORS.length];
   const totalPicks = Object.values(state.picks).flat().length;
   const totalNeeded = draft.drafters.length * draft.numPicks;
   const progress = totalPicks / totalNeeded;
@@ -596,9 +799,11 @@ function DraftView({ draft, state, onPick, onBack }) {
         <button style={{ ...styles.btnPrimary, marginTop:12, background:color, width:"100%", color:"#fff" }} onClick={handlePick}>Lock It In ✓</button>
       </div>
       <div style={styles.boardGrid}>
-        {draft.drafters.map((d,i) => (
-          <div key={d} style={{ ...styles.boardCard, borderTopColor:COLORS[i%COLORS.length] }}>
-            <div style={{ ...styles.boardName, color:COLORS[i%COLORS.length] }}>{d}</div>
+        {draft.drafters.map((d,i) => {
+          const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
+          return (
+          <div key={d} style={{ ...styles.boardCard, borderTopColor:dc }}>
+            <div style={{ ...styles.boardName, color:dc }}>{d}</div>
             {(state.picks[d]||[]).map((p,j) => (
               <div key={j} style={styles.pickItem}><span style={styles.pickNum}>{j+1}</span> {p}</div>
             ))}
@@ -608,7 +813,7 @@ function DraftView({ draft, state, onPick, onBack }) {
               </div>
             ))}
           </div>
-        ))}
+        );})}
       </div>
     </div>
   );
@@ -639,6 +844,10 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
   return (
     <div style={styles.page}>
       <button style={styles.backBtn} onClick={onBack}>← Back</button>
+      {draft.imageUrl && (
+        <img src={draft.imageUrl} alt={draft.category}
+          style={{ width:"100%", maxHeight:160, objectFit:"cover", borderRadius:12, marginBottom:12 }} />
+      )}
       <h1 style={styles.pageTitle}>Vote</h1>
       <div style={styles.draftMeta}>{draft.category} · S{draft.season} W{draft.week}</div>
 
@@ -673,17 +882,23 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
               </div>
               {draftersToRank.map((d) => {
                 const ci = draft.drafters.indexOf(d);
+                const dc = draft.drafterDetails?.[d]?.color || COLORS[ci%COLORS.length];
                 return (
                   <div key={d} style={styles.voteRow}>
-                    <div style={{ ...styles.voteColorBar, background:COLORS[ci%COLORS.length] }} />
+                    <div style={{ ...styles.voteColorBar, background:dc }} />
                     <div style={{ flex:1 }}>
                       <div style={styles.voteDrafter}>{d}</div>
-                      <div style={styles.votePicksPreview}>
-                        {(draft.picks[d]||[]).slice(0,3).join(" · ")}{(draft.picks[d]||[]).length>3?" …":""}
+                      <div style={{ marginTop:4 }}>
+                        {(draft.picks[d]||[]).map((p,pi) => (
+                          <div key={pi} style={{ display:"flex", gap:6, fontSize:12, color:"#555", padding:"2px 0", borderBottom:"1px solid #f8f8f8" }}>
+                            <span style={{ color:"#ccc", minWidth:16, fontWeight:700 }}>{pi+1}</span>
+                            <span>{p}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                     <select
-                      style={{ ...styles.rankSelect, borderColor: rankings[d] ? COLORS[ci%COLORS.length] : P.warmGrey, color: rankings[d] ? P.red : "#aaa" }}
+                      style={{ ...styles.rankSelect, borderColor: rankings[d] ? dc : P.warmGrey, color: rankings[d] ? P.red : "#aaa" }}
                       value={rankings[d] || ""}
                       onChange={e => setRank(d, e.target.value)}
                     >
@@ -714,7 +929,7 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
           <div style={styles.label}>Your rankings:</div>
           {Object.entries(rankings).sort((a,b)=>a[1]-b[1]).map(([d,r]) => (
             <div key={d} style={styles.voteRow}>
-              <div style={{ ...styles.voteColorBar, background:COLORS[draft.drafters.indexOf(d)%COLORS.length] }} />
+              <div style={{ ...styles.voteColorBar, background:draft.drafterDetails?.[d]?.color || COLORS[draft.drafters.indexOf(d)%COLORS.length] }} />
               <div style={{ flex:1, color:P.navy }}>{d}</div>
               <div style={{ fontWeight:800, color:P.red }}>#{r}</div>
             </div>
@@ -731,14 +946,16 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
       {Object.keys(draft.totals||{}).length > 0 && (
         <div style={styles.card}>
           <div style={styles.label}>Live Totals (higher = winning)</div>
-          {Object.entries(draft.totals).sort((a,b)=>b[1]-a[1]).map(([d,t],i) => (
+          {Object.entries(draft.totals).sort((a,b)=>b[1]-a[1]).map(([d,t],i) => {
+            const lc = draft.drafterDetails?.[d]?.color || COLORS[draft.drafters.indexOf(d)%COLORS.length];
+            return (
             <div key={d} style={styles.resultRow}>
               <span style={styles.resultRank}>{i+1}{getRankSuffix(i+1)}</span>
-              <div style={{ ...styles.resultBar, background:COLORS[draft.drafters.indexOf(d)%COLORS.length], width:`${Math.min(100,(t/Math.max(...Object.values(draft.totals)))*85+10)}%` }} />
+              <div style={{ ...styles.resultBar, background:lc, width:`${Math.min(100,(t/Math.max(...Object.values(draft.totals)))*85+10)}%` }} />
               <span style={styles.resultName}>{d}</span>
               <span style={styles.resultScore}>{t}</span>
             </div>
-          ))}
+          );})}
         </div>
       )}
     </div>
@@ -753,6 +970,10 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
   return (
     <div style={styles.page}>
       <button style={styles.backBtn} onClick={onBack}>← Back</button>
+      {draft.imageUrl && (
+        <img src={draft.imageUrl} alt={draft.category}
+          style={{ width:"100%", maxHeight:200, objectFit:"cover", borderRadius:12, marginBottom:16 }} />
+      )}
       <h1 style={styles.pageTitle}>{draft.category}</h1>
       <div style={styles.draftMeta}>Season {draft.season} · Week {draft.week} · Final Results</div>
 
@@ -763,8 +984,9 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
             const rank = pos===1?1:pos===0?2:3;
             const heights = [80,110,60];
             const ci = draft.drafters.indexOf(entry[0]);
+            const dc = draft.drafterDetails?.[entry[0]]?.color || COLORS[ci%COLORS.length];
             return (
-              <div key={entry[0]} style={{ ...styles.podiumCol, height:heights[pos], background:COLORS[ci%COLORS.length] }}>
+              <div key={entry[0]} style={{ ...styles.podiumCol, height:heights[pos], background:dc }}>
                 <div style={styles.podiumRank}>{rank}</div>
                 <div style={styles.podiumName}>{entry[0]}</div>
                 <div style={styles.podiumScore}>{entry[1]} pts</div>
@@ -784,7 +1006,7 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
               </span>
               <span style={{ flex:1, fontWeight:600, color:P.navy }}>{drafter}</span>
               <span style={{ color:"#888", fontSize:13 }}>{total} vote pts</span>
-              <span style={{ fontWeight:800, color:COLORS[draft.drafters.indexOf(drafter)%COLORS.length] }}>+{pts[drafter]} season pts</span>
+              <span style={{ fontWeight:800, color:draft.drafterDetails?.[drafter]?.color || COLORS[draft.drafters.indexOf(drafter)%COLORS.length] }}>+{pts[drafter]} season pts</span>
             </div>
             <div style={{ ...styles.votePicksPreview, paddingLeft:40 }}>
               {(draft.picks[drafter]||[]).join(" · ")}
@@ -830,7 +1052,7 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
 }
 
 // ─── LEADERBOARD ──────────────────────────────────────────────────────────────
-function LeaderboardView({ onBack }) {
+function LeaderboardView({ drafts, onBack }) {
   const [season, setSeason] = useState(1);
   const [tab, setTab] = useState("standings");
 
@@ -838,7 +1060,7 @@ function LeaderboardView({ onBack }) {
   const data = getLeaderboard(seasonScores);
 
   const wins = {};
-  SEED_DRAFTS.filter(d => d.season===season && d.status==="voted" && d.winner).forEach(d => {
+  drafts.filter(d => d.season===season && d.status==="voted" && d.winner).forEach(d => {
     const realName = resolveName(d.winner);
     wins[realName] = (wins[realName]||0) + 1;
   });
@@ -949,7 +1171,7 @@ function LeaderboardView({ onBack }) {
           )}
           <div style={{ marginTop:20 }}>
             <div style={styles.label}>All Results</div>
-            {SEED_DRAFTS.filter(d=>d.season===season&&d.status==="voted").map(d => (
+            {drafts.filter(d=>d.season===season&&d.status==="voted").map(d => (
               <div key={d.id} style={{ ...styles.resultRow, marginBottom:8 }}>
                 <span style={{ flex:1, fontSize:13, color:"#555" }}>W{d.week}: {d.category}</span>
                 <span style={{ fontWeight:700, color:P.navy, fontSize:13 }}>🏆 {resolveName(d.winner)}</span>
