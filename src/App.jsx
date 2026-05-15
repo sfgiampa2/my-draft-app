@@ -1,4 +1,10 @@
 import { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  "https://xlzeuduftbvedjisfbip.supabase.co",
+  "sb_publishable_fvIHoyum37kgBpfnSjIp6w_vzrG25At"
+);
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const P = {
@@ -260,24 +266,48 @@ function buildShareLink(draftId) {
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [view, setView] = useState("home");
-  const [drafts, setDrafts] = useState(SEED_DRAFTS);
+  const [drafts, setDrafts] = useState([]);
   const [activeDraft, setActiveDraft] = useState(null);
   const [setupData, setSetupData] = useState({ category:"", season:1, week:1, drafters:[], numPicks:5 });
   const [draftState, setDraftState] = useState({ picks:{}, currentRound:0, currentDrafter:0 });
   const [voteState, setVoteState] = useState({ voterName:"", rankings:{}, submitted:false, voters:[] });
   const [notification, setNotification] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const id = getDraftIdFromUrl();
-    if (id) {
-      const draft = SEED_DRAFTS.find(d => d.id === id);
-      if (draft) {
-        setActiveDraft(draft);
-        setVoteState({ voterName:"", rankings:{}, submitted:false, voters: Object.keys(draft.votes||{}) });
-        setView("vote");
+    async function loadDrafts() {
+      const { data, error } = await supabase.from("drafts").select("*").order("created_at");
+      if (error) {
+        console.error("Error loading drafts:", error);
+        setDrafts(SEED_DRAFTS);
+        setLoading(false);
+        return;
       }
+      if (data.length === 0) {
+        for (const draft of SEED_DRAFTS) {
+          await supabase.from("drafts").insert({ id: draft.id, data: draft });
+        }
+        setDrafts(SEED_DRAFTS);
+      } else {
+        setDrafts(data.map(row => row.data));
+        const id = getDraftIdFromUrl();
+        if (id) {
+          const found = data.find(row => row.id === id);
+          if (found) {
+            setActiveDraft(found.data);
+            setVoteState({ voterName:"", rankings:{}, submitted:false, voters: Object.keys(found.data.votes||{}) });
+            setView("vote");
+          }
+        }
+      }
+      setLoading(false);
     }
+    loadDrafts();
   }, []);
+
+  async function saveDraft(draft) {
+    await supabase.from("drafts").upsert({ id: draft.id, data: draft });
+  }
 
   function notify(msg, type="success") {
     setNotification({ msg, type });
@@ -307,6 +337,7 @@ export default function App() {
     setDrafts(prev => [...prev, newDraft]);
     setActiveDraft(newDraft);
     setDraftState({ picks: Object.fromEntries(setupData.drafters.map(d=>[d,[]])), currentRound:0, currentDrafter:0 });
+    saveDraft(newDraft);
     setView("draft");
   }
 
@@ -328,6 +359,7 @@ export default function App() {
       const updated = { ...d, picks: newPicks, status:"voting" };
       setActiveDraft(updated);
       setDrafts(prev => prev.map(x => x.id===d.id ? updated : x));
+      saveDraft(updated);
       setVoteState({ voterName:"", rankings:{}, submitted:false, voters:[] });
       setView("vote");
     }
@@ -354,6 +386,7 @@ export default function App() {
     const updated = { ...activeDraft, votes: newVotes, totals: newTotals, status:"voting" };
     setActiveDraft(updated);
     setDrafts(prev => prev.map(x => x.id===activeDraft.id ? updated : x));
+    saveDraft(updated);
     setVoteState(prev => ({ ...prev, submitted:true, voters: Object.keys(newVotes) }));
     notify("Vote submitted!");
   }
@@ -364,13 +397,24 @@ export default function App() {
     const updated = { ...activeDraft, status:"voted", seasonPoints:pts, winner:sorted[0]?.[0] };
     setActiveDraft(updated);
     setDrafts(prev => prev.map(x => x.id===activeDraft.id ? updated : x));
+    saveDraft(updated);
     setView("results");
   }
 
-  function deleteDraft(id) {
+  async function deleteDraft(id) {
     if (!window.confirm("Delete this draft? This can't be undone.")) return;
     setDrafts(prev => prev.filter(d => d.id !== id));
+    await supabase.from("drafts").delete().eq("id", id);
   }
+
+  if (loading) return (
+    <div style={{ ...styles.root, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ textAlign:"center", color:P.navy }}>
+        <div style={{ fontSize:32, marginBottom:12 }}>⏳</div>
+        <div style={{ fontWeight:700, fontSize:18 }}>Loading drafts…</div>
+      </div>
+    </div>
+  );
 
   return (
     <div style={styles.root}>
@@ -398,8 +442,8 @@ function HomeView({ drafts, onNew, onLeaderboard, onHistory, onVote, onResults }
     <div style={styles.page}>
       <div style={styles.hero}>
         <div style={styles.heroTag}>Draft Simulator</div>
-        <h1 style={styles.heroTitle}>Thursday's Best<br/><span style={styles.heroAccent}>Draft Room</span></h1>
-        <p style={styles.heroSub}>Build your roster. Defend your picks. Let the votes decide. Brought to you by Friday's Team Check-in.</p>
+        <h1 style={styles.heroTitle}>The Draft<br/><span style={styles.heroAccent}>Room</span></h1>
+        <p style={styles.heroSub}>Build your roster. Defend your picks. Let the votes decide.</p>
         <button style={styles.btnPrimary} onClick={onNew}>+ Start New Draft</button>
       </div>
       <div style={styles.grid2}>
