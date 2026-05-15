@@ -442,8 +442,8 @@ function HomeView({ drafts, onNew, onLeaderboard, onHistory, onVote, onResults }
     <div style={styles.page}>
       <div style={styles.hero}>
         <div style={styles.heroTag}>Draft Simulator</div>
-        <h1 style={styles.heroTitle}>The Draft<br/><span style={styles.heroAccent}>Room</span></h1>
-        <p style={styles.heroSub}>Build your roster. Defend your picks. Let the votes decide.</p>
+        <h1 style={styles.heroTitle}>Thursday's Best<br/><span style={styles.heroAccent}>Draft Room</span></h1>
+        <p style={styles.heroSub}>Build your roster. Defend your picks. Let the votes decide. Brought to you by Friday's Team Check-in.</p>
         <button style={styles.btnPrimary} onClick={onNew}>+ Start New Draft</button>
       </div>
       <div style={styles.grid2}>
