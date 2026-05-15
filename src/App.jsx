@@ -82,7 +82,7 @@ function getRankSuffix(n) {
   if (n===1) return "st"; if (n===2) return "nd"; if (n===3) return "rd"; return "th";
 }
 
-const COLORS = ["#FF6B6B","#4ECDC4","#FFE66D","#A29BFE","#FD79A8","#00CEC9","#FDCB6E","#6C5CE7","#E17055","#74B9FF"];
+const COLORS = ["#1D3169","#E21D38","#A9C2DC","#77D645","#FFC300","#14E4E5","#A9D4E8","#1D3169","#77D645","#FFC300"];
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
@@ -207,7 +207,7 @@ export default function App() {
   return (
     <div style={styles.root}>
       {notification && (
-        <div style={{ ...styles.notification, background: notification.type==="error" ? "#FF6B6B" : "#4ECDC4" }}>
+        <div style={{ ...styles.notification, background: notification.type==="error" ? "#E21D38" : "#77D645", color: "#fff" }}>
           {notification.msg}
         </div>
       )}
@@ -383,7 +383,7 @@ function DraftView({ draft, state, onPick, onBack }) {
         <div style={{ color, fontWeight:700, fontSize:14, marginBottom:6, letterSpacing:2, textTransform:"uppercase" }}>
           Now picking — Round {round}
         </div>
-        <div style={{ fontSize:26, fontWeight:800, color:"#fff", marginBottom:16 }}>{drafter}</div>
+        <div style={{ fontSize:26, fontWeight:800, color:"#1D3169", marginBottom:16 }}>{drafter}</div>
         <input
           ref={inputRef}
           style={styles.bigInput}
@@ -487,14 +487,14 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
         <div style={styles.card}>
           <div style={{ textAlign:"center", padding:"12px 0 20px" }}>
             <div style={{ fontSize:40, marginBottom:8 }}>✓</div>
-            <div style={{ fontSize:18, fontWeight:700, color:"#4ECDC4" }}>Vote submitted, {voterName}!</div>
+            <div style={{ fontSize:18, fontWeight:700, color:"#77D645" }}>Vote submitted, {voterName}!</div>
           </div>
           <div style={styles.label}>Your rankings:</div>
           {Object.entries(rankings).sort((a,b)=>a[1]-b[1]).map(([d,r]) => (
             <div key={d} style={styles.voteRow}>
               <div style={{ ...styles.voteColorBar, background: COLORS[draft.drafters.indexOf(d)%COLORS.length] }} />
-              <div style={{ flex:1, color:"#fff" }}>{d}</div>
-              <div style={{ fontWeight:800, color:"#FFE66D" }}>#{r}</div>
+              <div style={{ flex:1, color:"#1D3169" }}>{d}</div>
+              <div style={{ fontWeight:800, color:"#E21D38" }}>#{r}</div>
             </div>
           ))}
           <button style={{ ...styles.btnSmall, marginTop:16, width:"100%" }} onClick={()=>setVoteState(v=>({...v,submitted:false,voterName:"",rankings:{}}))}>
@@ -559,11 +559,11 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
         {sorted.map(([drafter, total], i) => (
           <div key={drafter} style={{ marginBottom:16 }}>
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-              <span style={{ ...styles.resultRank, color: i===0?"#FFE66D":i===1?"#aaa":i===2?"#cd7f32":"rgba(255,255,255,0.4)" }}>
+              <span style={{ ...styles.resultRank, color: i===0?"#FFC300":i===1?"#A9C2DC":i===2?"#E21D38":"#bbb" }}>
                 {i+1}{getRankSuffix(i+1)}
               </span>
-              <span style={{ flex:1, fontWeight:600, color:"#fff" }}>{drafter}</span>
-              <span style={{ color:"rgba(255,255,255,0.5)", fontSize:13 }}>{total} vote pts</span>
+              <span style={{ flex:1, fontWeight:600, color:"#1D3169" }}>{drafter}</span>
+              <span style={{ color:"#888", fontSize:13 }}>{total} vote pts</span>
               <span style={{ fontWeight:800, color: COLORS[draft.drafters.indexOf(drafter)%COLORS.length] }}>+{pts[drafter]} season pts</span>
             </div>
             <div style={{ ...styles.votePicksPreview, paddingLeft:40 }}>
@@ -594,7 +594,7 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
                 ))}
                 <tr>
                   <td style={{ ...styles.td, fontWeight:700 }}>Total</td>
-                  {draft.drafters.map(d => <td key={d} style={{ ...styles.td, fontWeight:700, color:"#4ECDC4" }}>{draft.totals[d] ?? "—"}</td>)}
+                  {draft.drafters.map(d => <td key={d} style={{ ...styles.td, fontWeight:700, color:"#1D3169" }}>{draft.totals[d] ?? "—"}</td>)}
                 </tr>
               </tbody>
             </table>
@@ -636,12 +636,12 @@ function LeaderboardView({ data, drafts, onBack }) {
       <div style={styles.card}>
         {data.map(([player, stats], i) => (
           <div key={player} style={{ ...styles.resultRow, marginBottom:12, alignItems:"center" }}>
-            <span style={{ ...styles.resultRank, minWidth:32, color:i===0?"#FFE66D":i===1?"#aaa":i===2?"#cd7f32":"rgba(255,255,255,0.4)" }}>
+            <span style={{ ...styles.resultRank, minWidth:32, color:i===0?"#FFC300":i===1?"#A9C2DC":i===2?"#E21D38":"#bbb" }}>
               #{i+1}
             </span>
-            <span style={{ flex:1, fontWeight:700, color:"#fff", fontSize:16 }}>{player}</span>
-            <span style={{ color:"rgba(255,255,255,0.5)", fontSize:13, marginRight:12 }}>avg {stats.avg}</span>
-            <span style={{ fontWeight:800, color:"#FFE66D", fontSize:18 }}>{stats.total}</span>
+            <span style={{ flex:1, fontWeight:700, color:"#1D3169", fontSize:16 }}>{player}</span>
+            <span style={{ color:"#888", fontSize:13, marginRight:12 }}>avg {stats.avg}</span>
+            <span style={{ fontWeight:800, color:"#E21D38", fontSize:18 }}>{stats.total}</span>
           </div>
         ))}
       </div>
@@ -659,9 +659,9 @@ function LeaderboardView({ data, drafts, onBack }) {
             <tbody>
               {SEASON1_SCORES.map(({ week, scores }) => (
                 <tr key={week}>
-                  <td style={{ ...styles.td, fontSize:11, color:"rgba(255,255,255,0.6)" }}>{week.replace("Week ","W")}</td>
+                  <td style={{ ...styles.td, fontSize:11, color:"#888" }}>{week.replace("Week ","W")}</td>
                   {data.map(([p]) => (
-                    <td key={p} style={{ ...styles.td, color: scores[p]===3?"#FFE66D":scores[p]===2?"#4ECDC4":scores[p]===1?"rgba(255,255,255,0.7)":"rgba(255,255,255,0.2)" }}>
+                    <td key={p} style={{ ...styles.td, color: scores[p]===3?"#FFC300":scores[p]===2?"#1D3169":scores[p]===1?"#A9C2DC":"#ccc" }}>
                       {scores[p] ?? "—"}
                     </td>
                   ))}
@@ -669,7 +669,7 @@ function LeaderboardView({ data, drafts, onBack }) {
               ))}
               <tr>
                 <td style={{ ...styles.td, fontWeight:700 }}>Total</td>
-                {data.map(([p,s]) => <td key={p} style={{ ...styles.td, fontWeight:700, color:"#FFE66D" }}>{s.total}</td>)}
+                {data.map(([p,s]) => <td key={p} style={{ ...styles.td, fontWeight:700, color:"#E21D38" }}>{s.total}</td>)}
               </tr>
             </tbody>
           </table>
@@ -711,76 +711,77 @@ function HistoryView({ drafts, onView, onVote, onBack }) {
 // ─── STYLES ───────────────────────────────────────────────────────────────────
 const styles = {
   root: {
-    minHeight:"100vh", background:"#0d0d14",
+    minHeight:"100vh", background:"#F7F5F3",
     fontFamily:"'DM Mono', 'Courier New', monospace",
-    color:"#e0e0e0", position:"relative",
+    color:"#1a1a1a", position:"relative",
   },
   page: { maxWidth:760, margin:"0 auto", padding:"24px 20px 60px" },
   notification: {
     position:"fixed", top:16, left:"50%", transform:"translateX(-50%)",
     padding:"10px 24px", borderRadius:30, fontWeight:700, fontSize:14,
-    color:"#000", zIndex:9999, letterSpacing:1,
+    color:"#fff", zIndex:9999, letterSpacing:1,
   },
-  hero: { textAlign:"center", padding:"48px 0 36px" },
-  heroTag: { display:"inline-block", background:"rgba(255,255,255,0.07)", borderRadius:30, padding:"4px 14px", fontSize:12, letterSpacing:3, textTransform:"uppercase", color:"rgba(255,255,255,0.4)", marginBottom:16 },
-  heroTitle: { fontSize:52, fontWeight:900, lineHeight:1.1, margin:"0 0 12px", color:"#fff", letterSpacing:-2 },
-  heroAccent: { color:"#FFE66D" },
-  heroSub: { color:"rgba(255,255,255,0.4)", fontSize:16, marginBottom:28 },
+  hero: { textAlign:"center", padding:"56px 0 40px" },
+  heroTag: { display:"inline-block", background:"#1D3169", borderRadius:30, padding:"4px 16px", fontSize:11, letterSpacing:3, textTransform:"uppercase", color:"#A9C2DC", marginBottom:20 },
+  heroTitle: { fontSize:52, fontWeight:900, lineHeight:1.1, margin:"0 0 12px", color:"#1D3169", letterSpacing:-2 },
+  heroAccent: { color:"#E21D38" },
+  heroSub: { color:"#6b6b6b", fontSize:16, marginBottom:32 },
   grid2: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:32 },
   navCard: {
-    background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)",
+    background:"#fff", border:"1px solid #DAD3CC",
     borderRadius:12, padding:"20px 16px", cursor:"pointer", textAlign:"left",
-    display:"flex", flexDirection:"column", gap:4, transition:"background 0.15s",
+    display:"flex", flexDirection:"column", gap:4, transition:"box-shadow 0.15s",
+    boxShadow:"0 1px 3px rgba(0,0,0,0.06)",
   },
   navIcon: { fontSize:24, marginBottom:4 },
-  navLabel: { fontWeight:700, fontSize:15, color:"#fff" },
-  navSub: { fontSize:12, color:"rgba(255,255,255,0.4)" },
+  navLabel: { fontWeight:700, fontSize:15, color:"#1D3169" },
+  navSub: { fontSize:12, color:"#888" },
   section: { marginBottom:28 },
-  sectionTitle: { fontSize:13, letterSpacing:2, textTransform:"uppercase", color:"rgba(255,255,255,0.35)", marginBottom:12, fontWeight:500 },
-  draftCard: { display:"flex", alignItems:"center", gap:12, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"14px 16px", marginBottom:8 },
+  sectionTitle: { fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#999", marginBottom:12, fontWeight:600 },
+  draftCard: { display:"flex", alignItems:"center", gap:12, background:"#fff", border:"1px solid #DAD3CC", borderRadius:10, padding:"14px 16px", marginBottom:8, boxShadow:"0 1px 3px rgba(0,0,0,0.04)" },
   draftColorBar: { width:4, height:40, borderRadius:2, flexShrink:0 },
-  draftName: { fontWeight:700, fontSize:15, color:"#fff", marginBottom:2 },
-  draftMeta: { fontSize:12, color:"rgba(255,255,255,0.4)" },
-  card: { background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:14, padding:"20px 18px", marginBottom:16 },
-  label: { fontSize:12, letterSpacing:2, textTransform:"uppercase", color:"rgba(255,255,255,0.4)", marginBottom:8, display:"block", fontWeight:500 },
-  input: { width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"10px 14px", color:"#fff", fontSize:14, outline:"none", marginBottom:14, boxSizing:"border-box", fontFamily:"inherit" },
-  bigInput: { width:"100%", background:"rgba(255,255,255,0.08)", border:"2px solid rgba(255,255,255,0.2)", borderRadius:10, padding:"14px 16px", color:"#fff", fontSize:18, outline:"none", fontFamily:"inherit", boxSizing:"border-box" },
+  draftName: { fontWeight:700, fontSize:15, color:"#1D3169", marginBottom:2 },
+  draftMeta: { fontSize:12, color:"#888" },
+  card: { background:"#fff", border:"1px solid #DAD3CC", borderRadius:14, padding:"20px 18px", marginBottom:16, boxShadow:"0 1px 4px rgba(0,0,0,0.05)" },
+  label: { fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#999", marginBottom:8, display:"block", fontWeight:600 },
+  input: { width:"100%", background:"#F7F5F3", border:"1px solid #DAD3CC", borderRadius:8, padding:"10px 14px", color:"#1a1a1a", fontSize:14, outline:"none", marginBottom:14, boxSizing:"border-box", fontFamily:"inherit" },
+  bigInput: { width:"100%", background:"#F7F5F3", border:"2px solid #A9C2DC", borderRadius:10, padding:"14px 16px", color:"#1a1a1a", fontSize:18, outline:"none", fontFamily:"inherit", boxSizing:"border-box" },
   row: { display:"flex", gap:10, alignItems:"flex-end", marginBottom:8 },
   drafterList: { display:"flex", flexWrap:"wrap", gap:8, marginBottom:10 },
-  drafterChip: { display:"flex", alignItems:"center", gap:6, background:"rgba(255,255,255,0.08)", borderRadius:20, padding:"4px 10px 4px 6px", fontSize:13 },
+  drafterChip: { display:"flex", alignItems:"center", gap:6, background:"#F0EDE9", border:"1px solid #DAD3CC", borderRadius:20, padding:"4px 10px 4px 6px", fontSize:13, color:"#1D3169" },
   chipDot: { width:10, height:10, borderRadius:"50%", display:"inline-block" },
-  chipX: { background:"none", border:"none", color:"rgba(255,255,255,0.4)", cursor:"pointer", fontSize:16, padding:0, lineHeight:1 },
-  btnPrimary: { background:"#FFE66D", border:"none", borderRadius:8, padding:"12px 24px", fontWeight:800, fontSize:14, cursor:"pointer", color:"#000", letterSpacing:1, fontFamily:"inherit" },
-  btnSmall: { background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:8, padding:"8px 16px", fontWeight:600, fontSize:13, cursor:"pointer", color:"#fff", fontFamily:"inherit" },
-  backBtn: { background:"none", border:"none", color:"rgba(255,255,255,0.4)", cursor:"pointer", fontSize:13, padding:"0 0 16px", fontFamily:"inherit" },
-  pageTitle: { fontSize:32, fontWeight:900, color:"#fff", margin:"0 0 4px", letterSpacing:-1 },
+  chipX: { background:"none", border:"none", color:"#aaa", cursor:"pointer", fontSize:16, padding:0, lineHeight:1 },
+  btnPrimary: { background:"#E21D38", border:"none", borderRadius:8, padding:"12px 24px", fontWeight:800, fontSize:14, cursor:"pointer", color:"#fff", letterSpacing:1, fontFamily:"inherit" },
+  btnSmall: { background:"#fff", border:"1.5px solid #1D3169", borderRadius:8, padding:"8px 16px", fontWeight:600, fontSize:13, cursor:"pointer", color:"#1D3169", fontFamily:"inherit" },
+  backBtn: { background:"none", border:"none", color:"#aaa", cursor:"pointer", fontSize:13, padding:"0 0 16px", fontFamily:"inherit" },
+  pageTitle: { fontSize:32, fontWeight:900, color:"#1D3169", margin:"0 0 4px", letterSpacing:-1 },
   draftHeader: { marginBottom:16 },
-  progressBar: { height:5, background:"rgba(255,255,255,0.08)", borderRadius:3, overflow:"hidden", marginBottom:8 },
+  progressBar: { height:5, background:"#DAD3CC", borderRadius:3, overflow:"hidden", marginBottom:8 },
   progressFill: { height:"100%", borderRadius:3, transition:"width 0.3s ease" },
-  pickPrompt: { border:"2px solid", borderRadius:14, padding:"20px 18px", marginBottom:24 },
+  pickPrompt: { border:"2px solid", borderRadius:14, padding:"20px 18px", marginBottom:24, background:"#fff" },
   boardGrid: { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px,1fr))", gap:12 },
-  boardCard: { background:"rgba(255,255,255,0.04)", borderRadius:10, padding:"14px", borderTop:"3px solid" },
+  boardCard: { background:"#fff", borderRadius:10, padding:"14px", borderTop:"3px solid", border:"1px solid #DAD3CC", boxShadow:"0 1px 3px rgba(0,0,0,0.04)" },
   boardName: { fontWeight:800, fontSize:13, marginBottom:8, letterSpacing:1, textTransform:"uppercase" },
-  pickItem: { display:"flex", alignItems:"baseline", gap:6, fontSize:13, color:"rgba(255,255,255,0.75)", padding:"3px 0", borderBottom:"1px solid rgba(255,255,255,0.05)" },
-  pickNum: { fontSize:11, color:"rgba(255,255,255,0.3)", minWidth:16, fontWeight:700 },
-  voteRow: { display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:"1px solid rgba(255,255,255,0.06)" },
+  pickItem: { display:"flex", alignItems:"baseline", gap:6, fontSize:13, color:"#444", padding:"3px 0", borderBottom:"1px solid #f0ede9" },
+  pickNum: { fontSize:11, color:"#bbb", minWidth:16, fontWeight:700 },
+  voteRow: { display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:"1px solid #f0ede9" },
   voteColorBar: { width:4, height:40, borderRadius:2, flexShrink:0 },
-  voteDrafter: { fontWeight:700, color:"#fff", fontSize:15 },
-  votePicksPreview: { fontSize:12, color:"rgba(255,255,255,0.35)", marginTop:2 },
-  rankInput: { width:52, background:"rgba(255,255,255,0.06)", border:"2px solid", borderRadius:6, padding:"8px", color:"#FFE66D", fontSize:18, fontWeight:800, textAlign:"center", fontFamily:"inherit", outline:"none" },
-  voteHint: { fontSize:12, color:"rgba(255,255,255,0.3)", marginBottom:12 },
+  voteDrafter: { fontWeight:700, color:"#1D3169", fontSize:15 },
+  votePicksPreview: { fontSize:12, color:"#aaa", marginTop:2 },
+  rankInput: { width:52, background:"#F7F5F3", border:"2px solid", borderRadius:6, padding:"8px", color:"#E21D38", fontSize:18, fontWeight:800, textAlign:"center", fontFamily:"inherit", outline:"none" },
+  voteHint: { fontSize:12, color:"#aaa", marginBottom:12 },
   voterBadges: { display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 },
-  voterBadge: { background:"rgba(78,205,196,0.15)", color:"#4ECDC4", borderRadius:20, padding:"3px 10px", fontSize:12, fontWeight:600 },
+  voterBadge: { background:"rgba(29,49,105,0.08)", color:"#1D3169", borderRadius:20, padding:"3px 10px", fontSize:12, fontWeight:600 },
   resultRow: { display:"flex", alignItems:"center", gap:8, marginBottom:8 },
-  resultRank: { fontSize:13, fontWeight:700, minWidth:28, color:"rgba(255,255,255,0.4)" },
+  resultRank: { fontSize:13, fontWeight:700, minWidth:28, color:"#bbb" },
   resultBar: { height:6, borderRadius:3, flexShrink:0, transition:"width 0.5s ease" },
-  resultName: { flex:1, color:"#fff", fontWeight:600, fontSize:14 },
-  resultScore: { fontWeight:800, color:"#FFE66D" },
+  resultName: { flex:1, color:"#1D3169", fontWeight:600, fontSize:14 },
+  resultScore: { fontWeight:800, color:"#E21D38" },
   podium: { display:"flex", alignItems:"flex-end", justifyContent:"center", gap:8, margin:"24px 0 16px", height:140 },
   podiumCol: { flex:1, maxWidth:180, borderRadius:"8px 8px 0 0", display:"flex", flexDirection:"column", justifyContent:"flex-end", alignItems:"center", padding:"8px 8px 10px", cursor:"default" },
-  podiumRank: { fontSize:22, fontWeight:900, color:"rgba(0,0,0,0.6)" },
-  podiumName: { fontSize:12, fontWeight:700, color:"rgba(0,0,0,0.7)", textAlign:"center", marginTop:2 },
-  podiumScore: { fontSize:11, color:"rgba(0,0,0,0.5)", marginTop:2 },
-  th: { textAlign:"left", padding:"6px 8px", fontSize:11, color:"rgba(255,255,255,0.35)", borderBottom:"1px solid rgba(255,255,255,0.08)", fontWeight:500, letterSpacing:1 },
-  td: { padding:"6px 8px", borderBottom:"1px solid rgba(255,255,255,0.04)", color:"rgba(255,255,255,0.65)" },
+  podiumRank: { fontSize:22, fontWeight:900, color:"rgba(255,255,255,0.85)" },
+  podiumName: { fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.9)", textAlign:"center", marginTop:2 },
+  podiumScore: { fontSize:11, color:"rgba(255,255,255,0.7)", marginTop:2 },
+  th: { textAlign:"left", padding:"6px 8px", fontSize:11, color:"#aaa", borderBottom:"1px solid #DAD3CC", fontWeight:600, letterSpacing:1 },
+  td: { padding:"6px 8px", borderBottom:"1px solid #f0ede9", color:"#555" },
 };
