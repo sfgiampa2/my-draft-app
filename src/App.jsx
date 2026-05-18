@@ -525,7 +525,7 @@ function HomeView({ drafts, onNew, onLeaderboard, onHistory, onVote, onResults }
   const recent = drafts.filter(d => d.status === "voted").slice(-2);
   return (
     <div style={styles.page}>
-      <div style={styles.hero}>
+      <div style={{ ...styles.hero, textAlign:"center", alignItems:"center", display:"flex", flexDirection:"column", width:"100%" }}>
         <div style={styles.heroTag}>Draft Simulator</div>
         <h1 style={styles.heroTitle}>Thursday's Best<br/><span style={styles.heroAccent}>Draft Room</span></h1>
         <p style={styles.heroSub}>Build your roster. Defend your picks. Let the votes decide. Brought to you by Friday's Team Check-in.</p>
@@ -1361,9 +1361,10 @@ function LeaderboardView({ drafts, onBack }) {
           <>
             <div style={styles.podium}>
               {[data[1],data[0],data[2]].filter(Boolean).map((entry,pos) => {
-                const rank = pos===1?1:pos===0?2:3;
                 const heights=[100,140,80];
                 const bgColors=[P.steel,P.navy,P.red];
+                // True rank accounting for ties
+                const rank = data.findIndex(([,s]) => s.total === entry[1].total) + 1;
                 return (
                   <div key={entry[0]} style={{ ...styles.podiumCol, height:heights[pos], background:bgColors[pos], justifyContent:"center", gap:4 }}>
                     <div style={{ ...styles.podiumRank, fontSize:32 }}>{rank}</div>
@@ -1507,7 +1508,7 @@ const styles = {
     fontFamily:"'Segoe UI', system-ui, -apple-system, sans-serif",
     color:"#1a1a1a", position:"relative",
   },
-  page: { maxWidth:760, margin:"0 auto", padding:"24px 20px 60px" },
+  page: { maxWidth:760, margin:"0 auto", padding:"24px 20px 60px", textAlign:"left" },
   notification: {
     position:"fixed", top:16, left:"50%", transform:"translateX(-50%)",
     padding:"10px 24px", borderRadius:30, fontWeight:700, fontSize:14,
