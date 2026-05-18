@@ -1290,8 +1290,13 @@ function LeaderboardView({ drafts, onBack }) {
     return voted.map(d => {
       const pts = d.seasonPoints || {};
       const scores = {};
-      Object.entries(pts).forEach(([name, p]) => {
-        scores[resolveName(name)] = p;
+      Object.entries(pts).forEach(([nickname, p]) => {
+        // First try drafterDetails from this draft, then global ALIAS_MAP
+        const realName = d.drafterDetails?.[nickname]?.realName
+          || resolveName(nickname)
+          || nickname;
+        // Accumulate in case two nicknames map to same real name
+        scores[realName] = (scores[realName] || 0) + p;
       });
       return { week: `W${d.week}: ${d.category}`, scores };
     });
