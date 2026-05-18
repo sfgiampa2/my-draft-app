@@ -1508,7 +1508,7 @@ const styles = {
     fontFamily:"'Segoe UI', system-ui, -apple-system, sans-serif",
     color:"#1a1a1a", position:"relative",
   },
-  page: { maxWidth:760, margin:"0 auto", padding:"24px 20px 60px", textAlign:"left" },
+  page: { maxWidth:760, margin:"0 auto", padding:"24px 20px 60px" },
   notification: {
     position:"fixed", top:16, left:"50%", transform:"translateX(-50%)",
     padding:"10px 24px", borderRadius:30, fontWeight:700, fontSize:14,
