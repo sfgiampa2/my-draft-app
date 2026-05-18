@@ -160,12 +160,12 @@ const SEED_DRAFTS = [
   },
   {
     id:"d8", category:"Worst Corporate Buzzwords", season:1, week:8, status:"voted",
-    drafters:["Tom","Scott","Olivia","Cat","Joe"],
+    drafters:["Olivia","Joe","Scott","Cat","Tom"],
     numPicks:3,
     picks:{
       "Tom":["\"Ping\"","\"Happy [any day that's not Friday]!\"","\"Let's take this offline\""],
       "Scott":["\"I hope this email finds you well\"","\"Close the loop\"","\"Can you take a first pass at this?\""],
-      "OP":["\"Let's circle back\"","\"Do you have bandwidth?\"","\"Let's keep it at a 50,000 foot view\""],
+      "Olivia":["\"Let's circle back\"","\"Do you have bandwidth?\"","\"Let's keep it at a 50,000 foot view\""],
       "Cat":["\"Let's not boil the ocean\"","\"We're family\"","\"Thought leadership\""],
       "Joe":["\"Move the needle\"","\"Ideate\"","\"Per my last email\""],
     },
