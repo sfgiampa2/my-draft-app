@@ -296,6 +296,7 @@ export default function App() {
   const [voteState, setVoteState] = useState({ voterName:"", rankings:{}, submitted:false, voters:[] });
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     async function loadDrafts() {
@@ -345,6 +346,7 @@ export default function App() {
   async function createDraft(orderedDrafters) {
     if (!setupData.category.trim()) return notify("Add a category name","error");
     if (!orderedDrafters || orderedDrafters.length < 2) return notify("Need at least 2 drafters","error");
+    setCreating(true);
     let imageUrl = null;
     if (setupData.imageFile) {
       const ext = setupData.imageFile.name.split(".").pop();
@@ -373,7 +375,8 @@ export default function App() {
     setDrafts(prev => [...prev, newDraft]);
     setActiveDraft(newDraft);
     setDraftState({ picks: Object.fromEntries(orderedDrafters.map(d=>[d,[]])), currentRound:0, currentDrafter:0 });
-    saveDraft(newDraft);
+    await saveDraft(newDraft);
+    setCreating(false);
     setView("draft");
   }
 
@@ -474,7 +477,7 @@ export default function App() {
       )}
       {view==="home"        && <HomeView drafts={drafts} onNew={startSetup} onLeaderboard={()=>setView("leaderboard")} onHistory={()=>setView("history")} onVote={loadDraftForVoting} onResults={d=>{setActiveDraft(d);setView("results");}} />}
       {view==="setup"       && <SetupView data={setupData} setData={setSetupData} onNext={()=>setView("wheel")} onBack={()=>setView("home")} />}
-      {view==="wheel"       && <WheelView drafters={setupData.drafters} drafterDetails={setupData.drafterDetails} onCreate={createDraft} onBack={()=>setView("setup")} />}
+      {view==="wheel"       && <WheelView drafters={setupData.drafters} drafterDetails={setupData.drafterDetails||{}} onCreate={createDraft} creating={creating} onBack={()=>setView("setup")} />}
       {view==="draft"       && activeDraft && <DraftView draft={activeDraft} state={draftState} onPick={submitPick} onBack={()=>setView("home")} />}
       {view==="vote"        && activeDraft && <VoteView draft={activeDraft} voteState={voteState} setVoteState={setVoteState} onSubmit={submitVote} onFinalize={finalizeDraft} onBack={()=>setView("home")} />}
       {view==="results"     && activeDraft && <ResultsView draft={activeDraft} onNewDraft={startSetup} onLeaderboard={()=>setView("leaderboard")} onBack={()=>setView("home")} />}
@@ -657,7 +660,9 @@ function SetupView({ data, setData, onNext, onBack }) {
 }
 
 // ─── WHEEL VIEW ───────────────────────────────────────────────────────────────
-function WheelView({ drafters, drafterDetails, onCreate, onBack }) {
+function WheelView({ setupData, onCreate, creating, onBack }) {
+  const drafters = setupData.drafters;
+  const drafterDetails = setupData.drafterDetails;
   const [spinning, setSpinning] = useState(false);
   const [finalAngle, setFinalAngle] = useState(0);
   const [displayAngle, setDisplayAngle] = useState(0);
@@ -787,8 +792,8 @@ function WheelView({ drafters, drafterDetails, onCreate, onBack }) {
             <button style={{ ...styles.btnSmall, flex:1 }} onClick={()=>{ setResult(null); setOrderedDrafters(null); setDisplayAngle(0); }}>
               Re-spin
             </button>
-            <button style={{ ...styles.btnPrimary, flex:2 }} onClick={()=>onCreate(orderedDrafters)}>
-              Start Draft →
+            <button style={{ ...styles.btnPrimary, flex:2, opacity: creating?0.6:1 }} onClick={()=>!creating&&onCreate(orderedDrafters)} disabled={creating}>
+              {creating ? "Creating…" : "Start Draft →"}
             </button>
           </div>
         </div>
