@@ -895,7 +895,41 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
       <h1 style={styles.pageTitle}>Vote</h1>
       <div style={styles.draftMeta}>{draft.category} · S{draft.season} W{draft.week}</div>
 
-      <div style={{ ...styles.card, marginTop:16, display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
+      {/* Draft board table */}
+      <div style={{ ...styles.card, marginTop:16 }}>
+        <div style={styles.label}>Draft Board</div>
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+            <thead>
+              <tr>
+                <th style={{ ...styles.th, minWidth:40 }}>Rd</th>
+                {draft.drafters.map((d,i) => {
+                  const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
+                  return <th key={d} style={{ ...styles.th, color:dc, minWidth:90 }}>{d}</th>;
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: draft.numPicks }, (_,round) => (
+                <tr key={round} style={{ background: round%2===0 ? P.white : "#fafaf8" }}>
+                  <td style={{ ...styles.td, fontWeight:700, color:P.navy, fontSize:11, textAlign:"center" }}>R{round+1}</td>
+                  {draft.drafters.map((d,i) => {
+                    const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
+                    const pick = (draft.picks[d]||[])[round];
+                    return (
+                      <td key={d} style={{ ...styles.td, borderLeft:`2px solid ${dc}30`, paddingLeft:8, fontWeight: pick ? 700 : 400, color: pick ? "#1a1a1a" : "#ddd" }}>
+                        {pick || "—"}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style={{ ...styles.card, display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
         <span style={{ fontSize:13, color:P.navy, flex:1 }}>🔗 Share this draft so others can vote</span>
         <button style={{ ...styles.btnSmall, fontSize:12 }} onClick={copyLink}>{copied ? "Copied! ✓" : "Copy Link"}</button>
       </div>
@@ -1090,8 +1124,8 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
                     const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
                     const pick = (draft.picks[d]||[])[round];
                     return (
-                      <td key={d} style={{ ...styles.td, borderLeft:`2px solid ${dc}20`, paddingLeft:8 }}>
-                        {pick || <span style={{ color:"#ddd" }}>—</span>}
+                      <td key={d} style={{ ...styles.td, borderLeft:`2px solid ${dc}40`, paddingLeft:8, color: pick ? dc : "#ddd", fontWeight: pick ? 700 : 400 }}>
+                        {pick || "—"}
                       </td>
                     );
                   })}
@@ -1204,13 +1238,13 @@ function LeaderboardView({ drafts, onBack }) {
             <div style={styles.podium}>
               {[data[1],data[0],data[2]].filter(Boolean).map((entry,pos) => {
                 const rank = pos===1?1:pos===0?2:3;
-                const heights=[80,120,60];
+                const heights=[100,140,80];
                 const bgColors=[P.steel,P.navy,P.red];
                 return (
-                  <div key={entry[0]} style={{ ...styles.podiumCol, height:heights[pos], background:bgColors[pos] }}>
-                    <div style={styles.podiumRank}>{rank}</div>
-                    <div style={styles.podiumName}>{entry[0]}</div>
-                    <div style={styles.podiumScore}>{entry[1].total} pts</div>
+                  <div key={entry[0]} style={{ ...styles.podiumCol, height:heights[pos], background:bgColors[pos], justifyContent:"center", gap:4 }}>
+                    <div style={{ ...styles.podiumRank, fontSize:32 }}>{rank}</div>
+                    <div style={{ ...styles.podiumName, fontSize:13 }}>{entry[0]}</div>
+                    <div style={{ ...styles.podiumScore, fontSize:12 }}>{entry[1].total} pts</div>
                   </div>
                 );
               })}
