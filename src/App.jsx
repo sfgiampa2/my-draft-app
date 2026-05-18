@@ -339,7 +339,7 @@ export default function App() {
   }
 
   function startSetup() {
-    setSetupData({ category:"", season:1, week:2, drafters:[], drafterDetails:{}, numPicks:5, imageFile:null, imageUrl:null });
+    setSetupData({ category:"", season:2, week:1, drafters:[], drafterDetails:{}, numPicks:5, imageFile:null, imageUrl:null });
     setView("setup");
   }
 
@@ -558,7 +558,7 @@ function SetupView({ data, setData, onNext, onBack }) {
       ...d,
       drafters: [...d.drafters, key],
       drafterDetails: {
-        ...d.drafterDetails,
+        ...(d.drafterDetails || {}),
         [key]: { realName: realName.trim() || key, color: color }
       }
     }));
@@ -568,14 +568,14 @@ function SetupView({ data, setData, onNext, onBack }) {
   function removeDrafter(i) {
     setData(d => {
       const removed = d.drafters[i];
-      const newDetails = { ...d.drafterDetails };
+      const newDetails = { ...(d.drafterDetails || {}) };
       delete newDetails[removed];
       return { ...d, drafters: d.drafters.filter((_,j)=>j!==i), drafterDetails: newDetails };
     });
   }
 
   function canProceed() {
-    return data.category.trim() && data.drafters.length >= 2;
+    return data.category?.trim() && Array.isArray(data.drafters) && data.drafters.length >= 2;
   }
 
   return (
@@ -669,6 +669,12 @@ function WheelView({ setupData, onCreate, creating, onBack }) {
   const [result, setResult] = useState(null);
   const [orderedDrafters, setOrderedDrafters] = useState(null);
 
+  if (!drafters || drafters.length < 2) return (
+    <div style={styles.page}>
+      <button style={styles.backBtn} onClick={onBack}>← Back</button>
+      <div style={styles.card}><div style={{ color:P.red, textAlign:"center", padding:24 }}>No drafters found. Go back and add at least 2.</div></div>
+    </div>
+  );
   const n = drafters.length;
   const sliceAngle = 360 / n;
   // SVG constants — r=120 fits well inside 280x280 viewBox (cx=cy=140)
