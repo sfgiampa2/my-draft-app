@@ -659,12 +659,15 @@ function SetupView({ data, setData, onNext, onBack }) {
 // ─── WHEEL VIEW ───────────────────────────────────────────────────────────────
 function WheelView({ drafters, drafterDetails, onCreate, onBack }) {
   const [spinning, setSpinning] = useState(false);
-  const [angle, setAngle] = useState(0);
+  const [finalAngle, setFinalAngle] = useState(0);
+  const [displayAngle, setDisplayAngle] = useState(0);
   const [result, setResult] = useState(null);
   const [orderedDrafters, setOrderedDrafters] = useState(null);
 
   const n = drafters.length;
   const sliceAngle = 360 / n;
+  // SVG constants — r=120 fits well inside 280x280 viewBox (cx=cy=140)
+  const CX = 140, CY = 140, R = 128, R_LABEL = 85;
 
   function getColor(name, i) {
     return drafterDetails?.[name]?.color || COLORS[i % COLORS.length];
@@ -673,45 +676,49 @@ function WheelView({ drafters, drafterDetails, onCreate, onBack }) {
   function spin() {
     if (spinning || result) return;
     setSpinning(true);
-    const extraSpins = 5 * 360;
-    const randomOffset = Math.floor(Math.random() * 360);
-    const targetAngle = angle + extraSpins + randomOffset;
-    setAngle(targetAngle);
+
+    // Pick a random final position (0–360) for the wheel
+    const landingDeg = Math.random() * 360;
+    // Total rotation: 6 full spins + landing position
+    const totalRotation = displayAngle + 6 * 360 + landingDeg;
+    setDisplayAngle(totalRotation);
+    setFinalAngle(landingDeg);
+
     setTimeout(() => {
       setSpinning(false);
-      // Pointer is fixed at top. Slice 0 starts at -90deg (top).
-      // After rotating `targetAngle` clockwise, the slice at top is:
-      // which slice's original position maps to 0deg after rotation.
-      // Equivalent: how much back-rotation puts the pointer at the slice.
-      // normalizedAngle = how far wheel has rotated (mod 360)
-      // The slice at pointer = floor(normalizedAngle / sliceAngle)
-      const normalizedAngle = ((targetAngle % 360) + 360) % 360;
-      const winnerIdx = Math.floor(normalizedAngle / sliceAngle) % n;
+      // Pointer is at the top. Slice 0 starts at top (–90°).
+      // The wheel has rotated `totalRotation` degrees clockwise.
+      // The slice under the pointer: the wheel rotated clockwise means
+      // we look at which original slice is now at the top.
+      // Original slice i occupies [i*sliceAngle, (i+1)*sliceAngle] from top.
+      // After rotating `landingDeg` clockwise, the top pointer is now pointing
+      // at original angle (360 - landingDeg) % 360 on the wheel.
+      const pointerOnWheel = ((360 - landingDeg) % 360 + 360) % 360;
+      const winnerIdx = Math.floor(pointerOnWheel / sliceAngle) % n;
       const ordered = [];
       for (let i = 0; i < n; i++) ordered.push(drafters[(winnerIdx + i) % n]);
       setOrderedDrafters(ordered);
       setResult(ordered[0]);
-    }, 4000);
+    }, 4500);
   }
 
   function buildWheelPath(i) {
-    const startAngle = (i * sliceAngle - 90) * (Math.PI / 180);
-    const endAngle = ((i + 1) * sliceAngle - 90) * (Math.PI / 180);
-    const r = 140;
-    const cx = 150, cy = 150;
-    const x1 = cx + r * Math.cos(startAngle);
-    const y1 = cy + r * Math.sin(startAngle);
-    const x2 = cx + r * Math.cos(endAngle);
-    const y2 = cy + r * Math.sin(endAngle);
+    const startRad = (i * sliceAngle - 90) * (Math.PI / 180);
+    const endRad   = ((i + 1) * sliceAngle - 90) * (Math.PI / 180);
+    const x1 = CX + R * Math.cos(startRad);
+    const y1 = CY + R * Math.sin(startRad);
+    const x2 = CX + R * Math.cos(endRad);
+    const y2 = CY + R * Math.sin(endRad);
     const large = sliceAngle > 180 ? 1 : 0;
-    return `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z`;
+    return `M${CX},${CY} L${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} Z`;
   }
 
   function getLabelPos(i) {
-    const midAngle = ((i + 0.5) * sliceAngle - 90) * (Math.PI / 180);
-    const r = 95;
-    return { x: 150 + r * Math.cos(midAngle), y: 150 + r * Math.sin(midAngle) };
+    const midRad = ((i + 0.5) * sliceAngle - 90) * (Math.PI / 180);
+    return { x: CX + R_LABEL * Math.cos(midRad), y: CY + R_LABEL * Math.sin(midRad) };
   }
+
+  const spinDuration = "4.5s";
 
   return (
     <div style={styles.page}>
@@ -720,31 +727,38 @@ function WheelView({ drafters, drafterDetails, onCreate, onBack }) {
       <p style={styles.draftMeta}>Spin to determine who picks first!</p>
 
       <div style={{ display:"flex", flexDirection:"column", alignItems:"center", margin:"24px 0" }}>
-        {/* Pointer */}
-        <div style={{ width:0, height:0, borderLeft:"12px solid transparent", borderRight:"12px solid transparent", borderTop:`24px solid ${P.red}`, marginBottom:-2, zIndex:2 }} />
+        {/* Fixed pointer — points DOWN into wheel */}
+        <div style={{ width:0, height:0, borderLeft:"14px solid transparent", borderRight:"14px solid transparent", borderTop:`28px solid ${P.red}`, marginBottom:-4, position:"relative", zIndex:10 }} />
 
-        {/* Wheel */}
-        <div style={{ transition: spinning ? "transform 4s cubic-bezier(0.17,0.67,0.12,0.99)" : "none", transform:`rotate(${angle}deg)` }}>
-          <svg width="300" height="300" viewBox="0 0 300 300">
+        {/* Wheel wrapper — only this rotates */}
+        <div style={{
+          transition: spinning ? `transform ${spinDuration} cubic-bezier(0.25,0.1,0.1,1)` : "none",
+          transform: `rotate(${displayAngle}deg)`,
+          borderRadius:"50%",
+          boxShadow:"0 4px 20px rgba(0,0,0,0.15)",
+        }}>
+          <svg width="280" height="280" viewBox="0 0 280 280">
             {drafters.map((d, i) => {
               const pos = getLabelPos(i);
-              const shortName = d.length > 8 ? d.slice(0,7)+"…" : d;
+              const shortName = d.length > 9 ? d.slice(0,8)+"…" : d;
               return (
                 <g key={d}>
                   <path d={buildWheelPath(i)} fill={getColor(d, i)} stroke="#fff" strokeWidth="2" />
-                  <text x={pos.x} y={pos.y} textAnchor="middle" dominantBaseline="middle"
-                    style={{ fontSize: n > 6 ? 9 : 11, fontWeight:700, fill:"#fff", fontFamily:"Segoe UI, sans-serif", pointerEvents:"none", textShadow:"0 1px 2px rgba(0,0,0,0.4)" }}>
+                  <text
+                    x={pos.x} y={pos.y}
+                    textAnchor="middle" dominantBaseline="middle"
+                    style={{ fontSize: n > 6 ? 9 : 12, fontWeight:700, fill:"#fff", fontFamily:"Segoe UI, sans-serif", pointerEvents:"none" }}>
                     {shortName}
                   </text>
                 </g>
               );
             })}
-            <circle cx="150" cy="150" r="20" fill="#fff" stroke={P.warmGrey} strokeWidth="2" />
+            <circle cx={CX} cy={CY} r="18" fill="#fff" stroke={P.warmGrey} strokeWidth="2" />
           </svg>
         </div>
 
         {!result && (
-          <button style={{ ...styles.btnPrimary, marginTop:24, padding:"14px 40px", fontSize:16 }} onClick={spin} disabled={spinning}>
+          <button style={{ ...styles.btnPrimary, marginTop:28, padding:"14px 48px", fontSize:16 }} onClick={spin} disabled={spinning}>
             {spinning ? "Spinning…" : "🎰 Spin!"}
           </button>
         )}
@@ -753,25 +767,29 @@ function WheelView({ drafters, drafterDetails, onCreate, onBack }) {
       {result && orderedDrafters && (
         <div style={styles.card}>
           <div style={{ textAlign:"center", marginBottom:16 }}>
-            <div style={{ fontSize:32, marginBottom:4 }}>🎉</div>
-            <div style={{ fontSize:20, fontWeight:800, color:P.navy }}>{result} picks first!</div>
+            <div style={{ fontSize:40, marginBottom:6 }}>🎉</div>
+            <div style={{ fontSize:22, fontWeight:800, color:P.navy }}>{result} picks first!</div>
           </div>
-          <div style={styles.label}>Draft Order</div>
+          <div style={styles.label}>Draft Order (Snake)</div>
           {orderedDrafters.map((d, i) => {
             const det = drafterDetails?.[d] || {};
             const c = det.color || COLORS[drafters.indexOf(d) % COLORS.length];
             return (
-              <div key={d} style={{ display:"flex", alignItems:"center", gap:12, padding:"8px 0", borderBottom:"1px solid #f0ede9" }}>
-                <span style={{ fontWeight:700, color:"#bbb", minWidth:24 }}>#{i+1}</span>
-                <div style={{ width:12, height:12, borderRadius:"50%", background:c }} />
+              <div key={d} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:"1px solid #f0ede9" }}>
+                <span style={{ fontWeight:700, color:"#bbb", minWidth:28, fontSize:13 }}>#{i+1}</span>
+                <div style={{ width:14, height:14, borderRadius:"50%", background:c, flexShrink:0 }} />
                 <span style={{ flex:1, fontWeight:600, color:P.navy }}>{d}</span>
-                {det.realName && det.realName !== d && <span style={{ fontSize:12, color:"#aaa" }}>{det.realName}</span>}
+                {det.realName && det.realName !== d && <span style={{ fontSize:12, color:"#aaa" }}>({det.realName})</span>}
               </div>
             );
           })}
           <div style={{ display:"flex", gap:8, marginTop:20 }}>
-            <button style={{ ...styles.btnSmall, flex:1 }} onClick={()=>{ setResult(null); setOrderedDrafters(null); setAngle(0); }}>Re-spin</button>
-            <button style={{ ...styles.btnPrimary, flex:2 }} onClick={()=>onCreate(orderedDrafters)}>Start Draft →</button>
+            <button style={{ ...styles.btnSmall, flex:1 }} onClick={()=>{ setResult(null); setOrderedDrafters(null); setDisplayAngle(0); }}>
+              Re-spin
+            </button>
+            <button style={{ ...styles.btnPrimary, flex:2 }} onClick={()=>onCreate(orderedDrafters)}>
+              Start Draft →
+            </button>
           </div>
         </div>
       )}
