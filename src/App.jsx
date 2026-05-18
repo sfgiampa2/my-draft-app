@@ -291,7 +291,7 @@ export default function App() {
   const [view, setView] = useState("home"); // home|setup|wheel|draft|vote|results|leaderboard|history
   const [drafts, setDrafts] = useState([]);
   const [activeDraft, setActiveDraft] = useState(null);
-  const [setupData, setSetupData] = useState({ category:"", season:1, week:1, drafters:[], numPicks:5 });
+  const [setupData, setSetupData] = useState({ category:"", season:2, week:1, drafters:[], drafterDetails:{}, numPicks:5, imageFile:null, imageUrl:null });
   const [draftState, setDraftState] = useState({ picks:{}, currentRound:0, currentDrafter:0 });
   const [voteState, setVoteState] = useState({ voterName:"", rankings:{}, submitted:false, voters:[] });
   const [notification, setNotification] = useState(null);
@@ -477,7 +477,7 @@ export default function App() {
       )}
       {view==="home"        && <HomeView drafts={drafts} onNew={startSetup} onLeaderboard={()=>setView("leaderboard")} onHistory={()=>setView("history")} onVote={loadDraftForVoting} onResults={d=>{setActiveDraft(d);setView("results");}} />}
       {view==="setup"       && <SetupView data={setupData} setData={setSetupData} onNext={()=>setView("wheel")} onBack={()=>setView("home")} />}
-      {view==="wheel"       && <WheelView drafters={setupData.drafters} drafterDetails={setupData.drafterDetails||{}} onCreate={createDraft} creating={creating} onBack={()=>setView("setup")} />}
+      {view==="wheel"       && <WheelView drafters={setupData.drafters||[]} drafterDetails={setupData.drafterDetails||{}} onCreate={createDraft} creating={creating} onBack={()=>setView("setup")} />}
       {view==="draft"       && activeDraft && <DraftView draft={activeDraft} state={draftState} onPick={submitPick} onBack={()=>setView("home")} />}
       {view==="vote"        && activeDraft && <VoteView draft={activeDraft} voteState={voteState} setVoteState={setVoteState} onSubmit={submitVote} onFinalize={finalizeDraft} onBack={()=>setView("home")} />}
       {view==="results"     && activeDraft && <ResultsView draft={activeDraft} onNewDraft={startSetup} onLeaderboard={()=>setView("leaderboard")} onBack={()=>setView("home")} />}
