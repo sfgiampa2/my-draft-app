@@ -484,7 +484,7 @@ export default function App() {
       {view==="setup"       && <SetupView data={setupData} setData={setSetupData} onNext={()=>setView("wheel")} onBack={()=>setView("home")} />}
       {view==="wheel"       && <WheelView drafters={setupData.drafters||[]} drafterDetails={setupData.drafterDetails||{}} onCreate={createDraft} creating={creating} onBack={()=>setView("setup")} />}
       {view==="draft"       && activeDraft && <DraftView draft={activeDraft} state={draftState} onPick={submitPick} onBack={()=>setView("home")} />}
-      {view==="vote"        && activeDraft && <VoteView draft={activeDraft} voteState={voteState} setVoteState={setVoteState} onSubmit={submitVote} onFinalize={finalizeDraft} onBack={()=>setView("home")} />}
+      {view==="vote"        && activeDraft && <VoteView draft={activeDraft} voteState={voteState} setVoteState={setVoteState} onSubmit={submitVote} onFinalize={finalizeDraft} onBack={()=>setView("home")} onRefreshDraft={d=>{setActiveDraft(d);setDrafts(prev=>prev.map(x=>x.id===d.id?d:x));}} />}
       {view==="results"     && activeDraft && <ResultsView draft={activeDraft} onNewDraft={startSetup} onLeaderboard={()=>setView("leaderboard")} onBack={()=>setView("home")} />}
       {view==="leaderboard" && <LeaderboardView drafts={drafts} onBack={()=>setView("home")} />}
       {view==="history"     && <HistoryView drafts={drafts} onView={d=>{setActiveDraft(d);setView("results");}} onVote={loadDraftForVoting} onDelete={deleteDraft} onBack={()=>setView("home")} />}
@@ -666,11 +666,13 @@ function SetupView({ data, setData, onNext, onBack }) {
 
 // ─── WHEEL VIEW ───────────────────────────────────────────────────────────────
 function WheelView({ drafters, drafterDetails, onCreate, creating, onBack }) {
+  // remainingDrafters = still on wheel, order = final claimed positions
+  const [remaining, setRemaining] = useState([...drafters]);
+  const [order, setOrder] = useState([]); // [{drafter, position}]
   const [spinning, setSpinning] = useState(false);
-  const [finalAngle, setFinalAngle] = useState(0);
   const [displayAngle, setDisplayAngle] = useState(0);
-  const [result, setResult] = useState(null);
-  const [orderedDrafters, setOrderedDrafters] = useState(null);
+  const [spinResult, setSpinResult] = useState(null); // drafter name landed on
+  const [claiming, setClaiming] = useState(false); // waiting for someone to claim
 
   if (!drafters || drafters.length < 2) return (
     <div style={styles.page}>
@@ -678,130 +680,174 @@ function WheelView({ drafters, drafterDetails, onCreate, creating, onBack }) {
       <div style={styles.card}><div style={{ color:P.red, textAlign:"center", padding:24 }}>No drafters found. Go back and add at least 2.</div></div>
     </div>
   );
-  const n = drafters.length;
-  const sliceAngle = 360 / n;
-  // SVG constants — r=120 fits well inside 280x280 viewBox (cx=cy=140)
-  const CX = 140, CY = 140, R = 128, R_LABEL = 85;
 
-  function getColor(name, i) {
-    return drafterDetails?.[name]?.color || COLORS[i % COLORS.length];
+  const n = remaining.length;
+  const sliceAngle = n > 0 ? 360 / n : 360;
+  const CX = 140, CY = 140, R = 128, R_LABEL = 85;
+  const done = remaining.length === 0;
+
+  function getColor(name) {
+    const origIdx = drafters.indexOf(name);
+    return drafterDetails?.[name]?.color || COLORS[origIdx % COLORS.length];
   }
 
   function spin() {
-    if (spinning || result) return;
+    if (spinning || claiming || done || remaining.length === 0) return;
     setSpinning(true);
-
-    // Pick a random final position (0–360) for the wheel
+    setSpinResult(null);
     const landingDeg = Math.random() * 360;
-    // Total rotation: 6 full spins + landing position
     const totalRotation = displayAngle + 6 * 360 + landingDeg;
     setDisplayAngle(totalRotation);
-    setFinalAngle(landingDeg);
-
     setTimeout(() => {
       setSpinning(false);
-      // Pointer is at the top. Slice 0 starts at top (–90°).
-      // The wheel has rotated `totalRotation` degrees clockwise.
-      // The slice under the pointer: the wheel rotated clockwise means
-      // we look at which original slice is now at the top.
-      // Original slice i occupies [i*sliceAngle, (i+1)*sliceAngle] from top.
-      // After rotating `landingDeg` clockwise, the top pointer is now pointing
-      // at original angle (360 - landingDeg) % 360 on the wheel.
+      setClaiming(true);
       const pointerOnWheel = ((360 - landingDeg) % 360 + 360) % 360;
       const winnerIdx = Math.floor(pointerOnWheel / sliceAngle) % n;
-      const ordered = [];
-      for (let i = 0; i < n; i++) ordered.push(drafters[(winnerIdx + i) % n]);
-      setOrderedDrafters(ordered);
-      setResult(ordered[0]);
+      setSpinResult(remaining[winnerIdx]);
     }, 4500);
   }
 
-  function buildWheelPath(i) {
-    const startRad = (i * sliceAngle - 90) * (Math.PI / 180);
-    const endRad   = ((i + 1) * sliceAngle - 90) * (Math.PI / 180);
-    const x1 = CX + R * Math.cos(startRad);
-    const y1 = CY + R * Math.sin(startRad);
-    const x2 = CX + R * Math.cos(endRad);
-    const y2 = CY + R * Math.sin(endRad);
-    const large = sliceAngle > 180 ? 1 : 0;
-    return `M${CX},${CY} L${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} Z`;
+  function claimPosition(drafter, position) {
+    const newOrder = [...order, { drafter, position }];
+    const newRemaining = remaining.filter(d => d !== drafter);
+    setOrder(newOrder);
+    setRemaining(newRemaining);
+    setSpinResult(null);
+    setClaiming(false);
+    setDisplayAngle(0); // reset angle for fresh spin with smaller wheel
+    // If only one left, auto-assign last position
+    if (newRemaining.length === 1) {
+      const usedPositions = newOrder.map(o => o.position);
+      const allPositions = drafters.map((_,i) => i+1);
+      const lastPos = allPositions.find(p => !usedPositions.includes(p));
+      const finalOrder = [...newOrder, { drafter: newRemaining[0], position: lastPos }];
+      setOrder(finalOrder);
+      setRemaining([]);
+    }
   }
 
-  function getLabelPos(i) {
-    const midRad = ((i + 0.5) * sliceAngle - 90) * (Math.PI / 180);
-    return { x: CX + R_LABEL * Math.cos(midRad), y: CY + R_LABEL * Math.sin(midRad) };
+  function buildPath(i, total) {
+    const sa = (i * (360/total) - 90) * (Math.PI/180);
+    const ea = ((i+1) * (360/total) - 90) * (Math.PI/180);
+    const x1 = CX + R * Math.cos(sa), y1 = CY + R * Math.sin(sa);
+    const x2 = CX + R * Math.cos(ea), y2 = CY + R * Math.sin(ea);
+    return `M${CX},${CY} L${x1},${y1} A${R},${R} 0 ${(360/total)>180?1:0},1 ${x2},${y2} Z`;
   }
 
-  const spinDuration = "4.5s";
+  function getLabelPos(i, total) {
+    const mid = ((i+0.5) * (360/total) - 90) * (Math.PI/180);
+    return { x: CX + R_LABEL * Math.cos(mid), y: CY + R_LABEL * Math.sin(mid) };
+  }
+
+  // Available positions not yet claimed
+  const claimedPositions = order.map(o => o.position);
+  const availablePositions = drafters.map((_,i) => i+1).filter(p => !claimedPositions.includes(p));
 
   return (
     <div style={styles.page}>
       <button style={styles.backBtn} onClick={onBack}>← Back</button>
       <h1 style={styles.pageTitle}>Draft Order</h1>
-      <p style={styles.draftMeta}>Spin to determine who picks first!</p>
 
-      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", margin:"24px 0" }}>
-        {/* Fixed pointer — points DOWN into wheel */}
-        <div style={{ width:0, height:0, borderLeft:"14px solid transparent", borderRight:"14px solid transparent", borderTop:`28px solid ${P.red}`, marginBottom:-4, position:"relative", zIndex:10 }} />
+      {!done ? (
+        <>
+          <p style={{ ...styles.draftMeta, textAlign:"center", marginBottom:16 }}>
+            {claiming ? `${spinResult} — pick your draft position!` : `${remaining.length} drafter${remaining.length!==1?"s":""} remaining`}
+          </p>
 
-        {/* Wheel wrapper — only this rotates */}
-        <div style={{
-          transition: spinning ? `transform ${spinDuration} cubic-bezier(0.25,0.1,0.1,1)` : "none",
-          transform: `rotate(${displayAngle}deg)`,
-          borderRadius:"50%",
-          boxShadow:"0 4px 20px rgba(0,0,0,0.15)",
-        }}>
-          <svg width="280" height="280" viewBox="0 0 280 280">
-            {drafters.map((d, i) => {
-              const pos = getLabelPos(i);
-              const shortName = d.length > 9 ? d.slice(0,8)+"…" : d;
-              return (
-                <g key={d}>
-                  <path d={buildWheelPath(i)} fill={getColor(d, i)} stroke="#fff" strokeWidth="2" />
-                  <text
-                    x={pos.x} y={pos.y}
-                    textAnchor="middle" dominantBaseline="middle"
-                    style={{ fontSize: n > 6 ? 9 : 12, fontWeight:700, fill:"#fff", fontFamily:"Segoe UI, sans-serif", pointerEvents:"none" }}>
-                    {shortName}
-                  </text>
-                </g>
-              );
-            })}
-            <circle cx={CX} cy={CY} r="18" fill="#fff" stroke={P.warmGrey} strokeWidth="2" />
-          </svg>
-        </div>
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", marginBottom:24 }}>
+            <div style={{ width:0, height:0, borderLeft:"14px solid transparent", borderRight:"14px solid transparent", borderTop:`28px solid ${P.red}`, marginBottom:-4, zIndex:10 }} />
+            <div style={{ transition: spinning ? "transform 4.5s cubic-bezier(0.25,0.1,0.1,1)" : "none", transform:`rotate(${displayAngle}deg)`, borderRadius:"50%", boxShadow:"0 4px 20px rgba(0,0,0,0.15)" }}>
+              <svg width="280" height="280" viewBox="0 0 280 280">
+                {remaining.map((d,i) => {
+                  const pos = getLabelPos(i, remaining.length);
+                  const short = d.length > 9 ? d.slice(0,8)+"…" : d;
+                  return (
+                    <g key={d}>
+                      <path d={buildPath(i, remaining.length)} fill={getColor(d)} stroke="#fff" strokeWidth="2" />
+                      <text x={pos.x} y={pos.y} textAnchor="middle" dominantBaseline="middle"
+                        style={{ fontSize: remaining.length > 6 ? 9 : 11, fontWeight:700, fill:"#fff", fontFamily:"Segoe UI, sans-serif", pointerEvents:"none" }}>
+                        {short}
+                      </text>
+                    </g>
+                  );
+                })}
+                <circle cx={CX} cy={CY} r="18" fill="#fff" stroke={P.warmGrey} strokeWidth="2" />
+              </svg>
+            </div>
 
-        {!result && (
-          <button style={{ ...styles.btnPrimary, marginTop:28, padding:"14px 48px", fontSize:16 }} onClick={spin} disabled={spinning}>
-            {spinning ? "Spinning…" : "🎰 Spin!"}
-          </button>
-        )}
-      </div>
+            {!claiming && !spinning && (
+              <button style={{ ...styles.btnPrimary, marginTop:24, padding:"14px 48px", fontSize:16 }} onClick={spin}>
+                🎰 Spin!
+              </button>
+            )}
+          </div>
 
-      {result && orderedDrafters && (
+          {/* Claim position panel */}
+          {claiming && spinResult && (
+            <div style={{ ...styles.card, border:`2px solid ${getColor(spinResult)}` }}>
+              <div style={{ textAlign:"center", marginBottom:12 }}>
+                <div style={{ fontSize:18, fontWeight:800, color:getColor(spinResult) }}>{spinResult}</div>
+                <div style={{ fontSize:13, color:"#888", marginTop:4 }}>Choose your draft position:</div>
+              </div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:8, justifyContent:"center" }}>
+                {availablePositions.map(pos => (
+                  <button key={pos} style={{ ...styles.btnSmall, padding:"10px 20px", fontSize:16, fontWeight:800, borderColor:getColor(spinResult), color:getColor(spinResult) }}
+                    onClick={() => claimPosition(spinResult, pos)}>
+                    #{pos}
+                  </button>
+                ))}
+              </div>
+              <div style={{ fontSize:11, color:"#aaa", textAlign:"center", marginTop:8 }}>
+                Position determines your snake draft order
+              </div>
+            </div>
+          )}
+
+          {/* Claimed so far */}
+          {order.length > 0 && (
+            <div style={styles.card}>
+              <div style={styles.label}>Claimed Positions</div>
+              {order.sort((a,b)=>a.position-b.position).map(({drafter,position}) => {
+                const det = drafterDetails?.[drafter] || {};
+                return (
+                  <div key={drafter} style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 0", borderBottom:"1px solid #f0ede9" }}>
+                    <span style={{ fontWeight:700, color:"#bbb", minWidth:28 }}>#{position}</span>
+                    <div style={{ width:12, height:12, borderRadius:"50%", background:getColor(drafter), flexShrink:0 }} />
+                    <span style={{ flex:1, fontWeight:600, color:P.navy }}>{drafter}</span>
+                    {det.realName && det.realName !== drafter && <span style={{ fontSize:12, color:"#aaa" }}>({det.realName})</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : (
         <div style={styles.card}>
           <div style={{ textAlign:"center", marginBottom:16 }}>
             <div style={{ fontSize:40, marginBottom:6 }}>🎉</div>
-            <div style={{ fontSize:22, fontWeight:800, color:P.navy }}>{result} picks first!</div>
+            <div style={{ fontSize:20, fontWeight:800, color:P.navy }}>Draft order locked in!</div>
           </div>
           <div style={styles.label}>Draft Order (Snake)</div>
-          {orderedDrafters.map((d, i) => {
-            const det = drafterDetails?.[d] || {};
-            const c = det.color || COLORS[drafters.indexOf(d) % COLORS.length];
+          {order.sort((a,b)=>a.position-b.position).map(({drafter,position}) => {
+            const det = drafterDetails?.[drafter] || {};
             return (
-              <div key={d} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:"1px solid #f0ede9" }}>
-                <span style={{ fontWeight:700, color:"#bbb", minWidth:28, fontSize:13 }}>#{i+1}</span>
-                <div style={{ width:14, height:14, borderRadius:"50%", background:c, flexShrink:0 }} />
-                <span style={{ flex:1, fontWeight:600, color:P.navy }}>{d}</span>
-                {det.realName && det.realName !== d && <span style={{ fontSize:12, color:"#aaa" }}>({det.realName})</span>}
+              <div key={drafter} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:"1px solid #f0ede9" }}>
+                <span style={{ fontWeight:700, color:"#bbb", minWidth:28 }}>#{position}</span>
+                <div style={{ width:14, height:14, borderRadius:"50%", background:getColor(drafter), flexShrink:0 }} />
+                <span style={{ flex:1, fontWeight:600, color:P.navy }}>{drafter}</span>
+                {det.realName && det.realName !== drafter && <span style={{ fontSize:12, color:"#aaa" }}>({det.realName})</span>}
               </div>
             );
           })}
           <div style={{ display:"flex", gap:8, marginTop:20 }}>
-            <button style={{ ...styles.btnSmall, flex:1 }} onClick={()=>{ setResult(null); setOrderedDrafters(null); setDisplayAngle(0); }}>
-              Re-spin
+            <button style={{ ...styles.btnSmall, flex:1 }} onClick={() => { setRemaining([...drafters]); setOrder([]); setDisplayAngle(0); setSpinResult(null); setClaiming(false); }}>
+              Reset
             </button>
-            <button style={{ ...styles.btnPrimary, flex:2, opacity: creating?0.6:1 }} onClick={()=>!creating&&onCreate(orderedDrafters)} disabled={creating}>
+            <button style={{ ...styles.btnPrimary, flex:2, opacity:creating?0.6:1 }} disabled={creating}
+              onClick={() => {
+                const sorted = order.sort((a,b)=>a.position-b.position).map(o=>o.drafter);
+                onCreate(sorted);
+              }}>
               {creating ? "Creating…" : "Start Draft →"}
             </button>
           </div>
@@ -810,6 +856,7 @@ function WheelView({ drafters, drafterDetails, onCreate, creating, onBack }) {
     </div>
   );
 }
+
 
 // ─── DRAFT ROOM ───────────────────────────────────────────────────────────────
 function DraftView({ draft, state, onPick, onBack }) {
@@ -864,9 +911,25 @@ function DraftView({ draft, state, onPick, onBack }) {
 }
 
 // ─── VOTING ───────────────────────────────────────────────────────────────────
-function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack }) {
+function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack, onRefreshDraft }) {
   const { voterName, rankings, submitted, voters } = voteState;
   const [copied, setCopied] = useState(false);
+
+  // Poll for new votes every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const { data } = await supabase.from("drafts").select("data").eq("id", draft.id).single();
+      if (data?.data) {
+        const fresh = data.data;
+        const freshVoters = Object.keys(fresh.votes || {});
+        if (freshVoters.length !== voters.length) {
+          onRefreshDraft(fresh);
+          setVoteState(v => ({ ...v, voters: freshVoters }));
+        }
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [draft.id, voters.length]);
 
   function copyLink() {
     navigator.clipboard.writeText(buildShareLink(draft.id)).then(() => {
@@ -910,19 +973,19 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
                 <th style={{ ...styles.th, minWidth:40 }}>Rd</th>
                 {draft.drafters.map((d,i) => {
                   const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
-                  return <th key={d} style={{ ...styles.th, color:dc, minWidth:90 }}>{d}</th>;
+                  return <th key={d} style={{ ...styles.th, color:dc, minWidth:90, textAlign:"center" }}>{d}</th>;
                 })}
               </tr>
             </thead>
             <tbody>
               {Array.from({ length: draft.numPicks }, (_,round) => (
                 <tr key={round} style={{ background: round%2===0 ? P.white : "#fafaf8" }}>
-                  <td style={{ ...styles.td, fontWeight:700, color:P.navy, fontSize:11, textAlign:"center" }}>R{round+1}</td>
+                  <td style={{ ...styles.td, fontWeight:700, color:P.navy, fontSize:11, textAlign:"center", whiteSpace:"nowrap" }}>R{round+1}</td>
                   {draft.drafters.map((d,i) => {
                     const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
                     const pick = (draft.picks[d]||[])[round];
                     return (
-                      <td key={d} style={{ ...styles.td, borderLeft:`2px solid ${dc}30`, paddingLeft:8, fontWeight: pick ? 700 : 400, color: pick ? "#1a1a1a" : "#ddd" }}>
+                      <td key={d} style={{ ...styles.td, borderLeft:`2px solid ${dc}40`, paddingLeft:8, fontWeight: pick ? 700 : 400, color: pick ? dc : "#ddd", textAlign:"center" }}>
                         {pick || "—"}
                       </td>
                     );
@@ -1021,11 +1084,24 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
           <button style={{ ...styles.btnSmall, marginTop:16, width:"100%" }} onClick={()=>setVoteState(v=>({...v,submitted:false,voterName:"",rankings:{}}))}>
             Add Another Vote
           </button>
-          <button style={{ ...styles.btnPrimary, marginTop:8, width:"100%" }} onClick={onFinalize}>
-            Close Voting & See Results →
-          </button>
         </div>
       )}
+
+      {/* ── ADMIN PANEL ── always visible to draft creator */}
+      <div style={{ ...styles.card, border:`1.5px solid ${P.navy}20`, background:"#f8f7ff" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+          <span style={{ fontSize:16 }}>🔧</span>
+          <span style={{ fontWeight:700, color:P.navy, fontSize:13 }}>Admin</span>
+          <span style={{ fontSize:11, color:"#aaa", marginLeft:4 }}>Live view auto-refreshes every 5s</span>
+        </div>
+        <div style={{ fontSize:12, color:"#888", marginBottom:12 }}>
+          {Object.keys(draft.votes||{}).length} vote{Object.keys(draft.votes||{}).length!==1?"s":""} received
+          {voters.length > 0 && `: ${voters.join(", ")}`}
+        </div>
+        <button style={{ ...styles.btnPrimary, width:"100%" }} onClick={onFinalize}>
+          Close Voting & See Results →
+        </button>
+      </div>
 
       {Object.keys(draft.totals||{}).length > 0 && (
         <div style={styles.card}>
@@ -1115,7 +1191,7 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
                 <th style={{ ...styles.th, minWidth:60 }}>Round</th>
                 {draft.drafters.map((d,i) => {
                   const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
-                  return <th key={d} style={{ ...styles.th, color:dc, minWidth:100 }}>{d}</th>;
+                  return <th key={d} style={{ ...styles.th, color:dc, minWidth:100, textAlign:"center" }}>{d}</th>;
                 })}
               </tr>
             </thead>
@@ -1278,11 +1354,13 @@ function LeaderboardView({ drafts, onBack }) {
                     {seasonScores.map(({ week, scores }) => (
                       <tr key={week}>
                         <td style={{ ...styles.td, fontSize:11, color:"#888" }}>{week.replace("Week ","W")}</td>
-                        {data.map(([p]) => (
-                          <td key={p} style={{ ...styles.td, color:scores[p]===3?P.amber:scores[p]===2?P.navy:scores[p]===1?P.steel:"#ccc" }}>
-                            {scores[p] ?? "—"}
+                        {data.map(([p]) => {
+                          const val = scores[p] ?? scores[resolveName(p)];
+                          return (
+                          <td key={p} style={{ ...styles.td, color:val===3?P.amber:val===2?P.navy:val===1?P.steel:"#ccc" }}>
+                            {val ?? "—"}
                           </td>
-                        ))}
+                        );})}
                       </tr>
                     ))}
                     <tr>
