@@ -660,9 +660,7 @@ function SetupView({ data, setData, onNext, onBack }) {
 }
 
 // ─── WHEEL VIEW ───────────────────────────────────────────────────────────────
-function WheelView({ setupData, onCreate, creating, onBack }) {
-  const drafters = setupData.drafters;
-  const drafterDetails = setupData.drafterDetails;
+function WheelView({ drafters, drafterDetails, onCreate, creating, onBack }) {
   const [spinning, setSpinning] = useState(false);
   const [finalAngle, setFinalAngle] = useState(0);
   const [displayAngle, setDisplayAngle] = useState(0);
