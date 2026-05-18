@@ -60,7 +60,7 @@ const SEED_DRAFTS = [
     votes:{},
     totals:{"Tom":4,"Joe":6,"Talal":5,"Cat":8,"Scott":8},
     seasonPoints:{"Tom":0,"Joe":0,"Talal":1,"Cat":3,"Scott":3},
-    winner:"Cat",
+    winner:"Cat & Scott",
   },
   {
     id:"d2", category:"Apps on Your Phone", season:1, week:2, status:"voted",
@@ -73,9 +73,9 @@ const SEED_DRAFTS = [
       "Olivia":["TikTok","NYT Games","Chesapeake Dolphin Watch"],
     },
     votes:{},
-    totals:{"Tom":0,"Joe":0,"Cat":0,"Olivia":3},
-    seasonPoints:{"Tom":0,"Joe":0,"Cat":1,"Olivia":3},
-    winner:"Olivia",
+    totals:{"Tom":0,"Joe":0,"Cat":3,"Olivia":0},
+    seasonPoints:{"Tom":0,"Joe":0,"Cat":3,"Olivia":0},
+    winner:"Cat",
   },
   {
     id:"d3", category:"Rotation Guests", season:1, week:3, status:"voted",
@@ -1118,8 +1118,12 @@ function LeaderboardView({ drafts, onBack }) {
 
   const wins = {};
   drafts.filter(d => d.season===season && d.status==="voted" && d.winner).forEach(d => {
-    const realName = resolveName(d.winner);
-    wins[realName] = (wins[realName]||0) + 1;
+    // Handle ties like "Cat & Scott"
+    const names = d.winner.split(/\s*&\s*/);
+    names.forEach(name => {
+      const realName = resolveName(name.trim());
+      wins[realName] = (wins[realName]||0) + 1;
+    });
   });
   const winData = Object.entries(wins).sort((a,b)=>b[1]-a[1]);
 
