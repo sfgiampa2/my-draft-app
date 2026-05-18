@@ -415,8 +415,17 @@ export default function App() {
     if (existingVoters.map(v=>v.toLowerCase()).includes(voterName.trim().toLowerCase())) {
       return notify(`${voterName} has already voted!`, "error");
     }
-    const voterIsDrafter = drafters.includes(voterName.trim());
-    const draftersToRank = drafters.filter(d => d !== voterName.trim());
+    const trimmed = voterName.trim();
+    // Match voter by nickname or real name
+    const voterIsDrafter = drafters.some(d => 
+      d === trimmed || 
+      (activeDraft.drafterDetails?.[d]?.realName || "").toLowerCase() === trimmed.toLowerCase()
+    );
+    const matchedNickname = drafters.find(d =>
+      d === trimmed ||
+      (activeDraft.drafterDetails?.[d]?.realName || "").toLowerCase() === trimmed.toLowerCase()
+    );
+    const draftersToRank = drafters.filter(d => d !== matchedNickname);
     const ranked = Object.values(rankings).filter(v => v !== "" && v !== undefined);
     if (ranked.length !== draftersToRank.length || new Set(ranked).size !== draftersToRank.length) {
       return notify(`Rank all ${draftersToRank.length} drafters with unique values`, "error");
@@ -670,11 +679,14 @@ function WheelView({ drafters, drafterDetails, onCreate, onBack }) {
     setAngle(targetAngle);
     setTimeout(() => {
       setSpinning(false);
-      // Figure out which slice is at the top (270 degrees = top of wheel)
-      const normalized = ((targetAngle % 360) + 360) % 360;
-      const pointer = (360 - normalized + 270) % 360;
-      const winnerIdx = Math.floor(pointer / sliceAngle) % n;
-      // Build order starting from winner
+      // Pointer is fixed at top. Slice 0 starts at -90deg (top).
+      // After rotating `targetAngle` clockwise, the slice at top is:
+      // which slice's original position maps to 0deg after rotation.
+      // Equivalent: how much back-rotation puts the pointer at the slice.
+      // normalizedAngle = how far wheel has rotated (mod 360)
+      // The slice at pointer = floor(normalizedAngle / sliceAngle)
+      const normalizedAngle = ((targetAngle % 360) + 360) % 360;
+      const winnerIdx = Math.floor(normalizedAngle / sliceAngle) % n;
       const ordered = [];
       for (let i = 0; i < n; i++) ordered.push(drafters[(winnerIdx + i) % n]);
       setOrderedDrafters(ordered);
@@ -835,8 +847,13 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
     setVoteState(v => ({ ...v, rankings: { ...v.rankings, [drafter]: val === "" ? "" : +val } }));
   }
 
-  const voterIsDrafter = draft.drafters.includes(voterName.trim());
-  const draftersToRank = voterName.trim() ? draft.drafters.filter(d => d !== voterName.trim()) : draft.drafters;
+  const trimmedVoter = voterName.trim();
+  const matchedDrafter = trimmedVoter ? draft.drafters.find(d =>
+    d === trimmedVoter ||
+    (draft.drafterDetails?.[d]?.realName || "").toLowerCase() === trimmedVoter.toLowerCase()
+  ) : null;
+  const voterIsDrafter = !!matchedDrafter;
+  const draftersToRank = trimmedVoter ? draft.drafters.filter(d => d !== matchedDrafter) : draft.drafters;
   const rankedValues = Object.values(rankings).filter(v => v !== "" && v !== undefined);
   const allRanked = rankedValues.length === draftersToRank.length && draftersToRank.length > 0;
   const uniqueRanks = new Set(rankedValues).size === rankedValues.length;
@@ -846,7 +863,7 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
       <button style={styles.backBtn} onClick={onBack}>← Back</button>
       {draft.imageUrl && (
         <img src={draft.imageUrl} alt={draft.category}
-          style={{ width:"100%", maxHeight:160, objectFit:"cover", borderRadius:12, marginBottom:12 }} />
+          style={{ width:"100%", height:"auto", borderRadius:12, marginBottom:12, display:"block" }} />
       )}
       <h1 style={styles.pageTitle}>Vote</h1>
       <div style={styles.draftMeta}>{draft.category} · S{draft.season} W{draft.week}</div>
@@ -879,6 +896,7 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
               </label>
               <div style={styles.voteHint}>
                 No ties. 1 = best = most pts ({draftersToRank.length} pts), {draftersToRank.length} = last = 1 pt.
+                {voterIsDrafter && <span style={{ color:"#aaa" }}> You can't vote for yourself.</span>}
               </div>
               {draftersToRank.map((d) => {
                 const ci = draft.drafters.indexOf(d);
@@ -972,7 +990,7 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
       <button style={styles.backBtn} onClick={onBack}>← Back</button>
       {draft.imageUrl && (
         <img src={draft.imageUrl} alt={draft.category}
-          style={{ width:"100%", maxHeight:200, objectFit:"cover", borderRadius:12, marginBottom:16 }} />
+          style={{ width:"100%", height:"auto", borderRadius:12, marginBottom:16, display:"block" }} />
       )}
       <h1 style={styles.pageTitle}>{draft.category}</h1>
       <div style={styles.draftMeta}>Season {draft.season} · Week {draft.week} · Final Results</div>
@@ -1056,7 +1074,19 @@ function LeaderboardView({ drafts, onBack }) {
   const [season, setSeason] = useState(1);
   const [tab, setTab] = useState("standings");
 
-  const seasonScores = season === 1 ? SEASON1_SCORES : SEASON2_SCORES;
+  // For season 2+, build scores dynamically from completed drafts
+  const buildDynamicScores = (s) => {
+    const voted = drafts.filter(d => d.season === s && d.status === "voted");
+    return voted.map(d => {
+      const pts = d.seasonPoints || {};
+      const scores = {};
+      Object.entries(pts).forEach(([name, p]) => {
+        scores[resolveName(name)] = p;
+      });
+      return { week: `W${d.week}: ${d.category}`, scores };
+    });
+  };
+  const seasonScores = season === 1 ? SEASON1_SCORES : buildDynamicScores(season);
   const data = getLeaderboard(seasonScores);
 
   const wins = {};
