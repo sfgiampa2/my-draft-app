@@ -288,7 +288,7 @@ function buildShareLink(draftId) {
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [view, setView] = useState("home"); // home|setup|wheel|draft|vote|results|leaderboard|history
+  const [view, setView] = useState("home");
   const [drafts, setDrafts] = useState([]);
   const [activeDraft, setActiveDraft] = useState(null);
   const [setupData, setSetupData] = useState({ category:"", season:2, week:1, drafters:[], drafterDetails:{}, numPicks:5, imageFile:null, imageUrl:null });
@@ -297,6 +297,11 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  // adminDraftIds: set of draft ids this device created — stored in sessionStorage
+  const [adminDraftIds, setAdminDraftIds] = useState(() => {
+    try { return new Set(JSON.parse(sessionStorage.getItem("adminDraftIds")||"[]")); }
+    catch { return new Set(); }
+  });
 
   useEffect(() => {
     async function loadDrafts() {
@@ -318,8 +323,17 @@ export default function App() {
         if (id) {
           const found = data.find(row => row.id === id);
           if (found) {
-            setActiveDraft(found.data);
-            setVoteState({ voterName:"", rankings:{}, submitted:false, voters: Object.keys(found.data.votes||{}) });
+            // Also fetch latest votes from votes table to ensure freshness
+            const { data: voteRows } = await supabase.from("votes").select("*").eq("draft_id", found.id);
+            let draftData = found.data;
+            if (voteRows && voteRows.length > 0) {
+              const votes = {};
+              voteRows.forEach(v => { votes[v.voter_name] = v.rankings; });
+              const totals = computeTotalsFromVotes(votes, draftData.drafters);
+              draftData = { ...draftData, votes, totals };
+            }
+            setActiveDraft(draftData);
+            setVoteState({ voterName:"", rankings:{}, submitted:false, voters: Object.keys(draftData.votes||{}) });
             setView("vote");
           }
         }
@@ -376,6 +390,10 @@ export default function App() {
     setActiveDraft(newDraft);
     setDraftState({ picks: Object.fromEntries(orderedDrafters.map(d=>[d,[]])), currentRound:0, currentDrafter:0 });
     await saveDraft(newDraft);
+    // Mark as admin on this device
+    const newAdminIds = new Set([...adminDraftIds, newDraft.id]);
+    setAdminDraftIds(newAdminIds);
+    sessionStorage.setItem("adminDraftIds", JSON.stringify([...newAdminIds]));
     setCreating(false);
     setView("draft");
   }
@@ -410,7 +428,7 @@ export default function App() {
     setView("vote");
   }
 
-  function submitVote() {
+  async function submitVote() {
     const { voterName, rankings } = voteState;
     if (!voterName.trim()) return notify("Enter your name","error");
     const drafters = activeDraft.drafters;
@@ -419,11 +437,6 @@ export default function App() {
       return notify(`${voterName} has already voted!`, "error");
     }
     const trimmed = voterName.trim();
-    // Match voter by nickname or real name
-    const voterIsDrafter = drafters.some(d => 
-      d === trimmed || 
-      (activeDraft.drafterDetails?.[d]?.realName || "").toLowerCase() === trimmed.toLowerCase()
-    );
     const matchedNickname = drafters.find(d =>
       d === trimmed ||
       (activeDraft.drafterDetails?.[d]?.realName || "").toLowerCase() === trimmed.toLowerCase()
@@ -433,7 +446,11 @@ export default function App() {
     if (ranked.length !== draftersToRank.length || new Set(ranked).size !== draftersToRank.length) {
       return notify(`Rank all ${draftersToRank.length} drafters with unique values`, "error");
     }
-    const newVotes = { ...(activeDraft.votes||{}), [voterName]: { ...rankings } };
+    // Save vote to separate votes table
+    const voteId = `${activeDraft.id}_${trimmed}_${Date.now()}`;
+    await supabase.from("votes").insert({ id: voteId, draft_id: activeDraft.id, voter_name: trimmed, rankings });
+    // Also update draft totals in drafts table
+    const newVotes = { ...(activeDraft.votes||{}), [trimmed]: { ...rankings } };
     const newTotals = computeTotalsFromVotes(newVotes, drafters);
     const updated = { ...activeDraft, votes: newVotes, totals: newTotals, status:"voting" };
     setActiveDraft(updated);
@@ -484,7 +501,7 @@ export default function App() {
       {view==="setup"       && <SetupView data={setupData} setData={setSetupData} onNext={()=>setView("wheel")} onBack={()=>setView("home")} />}
       {view==="wheel"       && <WheelView drafters={setupData.drafters||[]} drafterDetails={setupData.drafterDetails||{}} onCreate={createDraft} creating={creating} onBack={()=>setView("setup")} />}
       {view==="draft"       && activeDraft && <DraftView draft={activeDraft} state={draftState} onPick={submitPick} onBack={()=>setView("home")} />}
-      {view==="vote"        && activeDraft && <VoteView draft={activeDraft} voteState={voteState} setVoteState={setVoteState} onSubmit={submitVote} onFinalize={finalizeDraft} onBack={()=>setView("home")} onRefreshDraft={d=>{setActiveDraft(d);setDrafts(prev=>prev.map(x=>x.id===d.id?d:x));}} />}
+      {view==="vote"        && activeDraft && <VoteView draft={activeDraft} voteState={voteState} setVoteState={setVoteState} onSubmit={submitVote} onFinalize={finalizeDraft} onBack={()=>setView("home")} isAdmin={adminDraftIds.has(activeDraft.id)} onRefreshDraft={d=>{setActiveDraft(d);setDrafts(prev=>prev.map(x=>x.id===d.id?d:x));}} />}
       {view==="results"     && activeDraft && <ResultsView draft={activeDraft} onNewDraft={startSetup} onLeaderboard={()=>setView("leaderboard")} onBack={()=>setView("home")} />}
       {view==="leaderboard" && <LeaderboardView drafts={drafts} onBack={()=>setView("home")} />}
       {view==="history"     && <HistoryView drafts={drafts} onView={d=>{setActiveDraft(d);setView("results");}} onVote={loadDraftForVoting} onDelete={deleteDraft} onBack={()=>setView("home")} />}
@@ -911,23 +928,25 @@ function DraftView({ draft, state, onPick, onBack }) {
 }
 
 // ─── VOTING ───────────────────────────────────────────────────────────────────
-function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack, onRefreshDraft }) {
+function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack, isAdmin, onRefreshDraft }) {
   const { voterName, rankings, submitted, voters } = voteState;
   const [copied, setCopied] = useState(false);
 
-  // Poll for new votes every 5 seconds
+  // Real-time: poll votes table every 4 seconds
   useEffect(() => {
     const interval = setInterval(async () => {
-      const { data } = await supabase.from("drafts").select("data").eq("id", draft.id).single();
-      if (data?.data) {
-        const fresh = data.data;
-        const freshVoters = Object.keys(fresh.votes || {});
-        if (freshVoters.length !== voters.length) {
-          onRefreshDraft(fresh);
-          setVoteState(v => ({ ...v, voters: freshVoters }));
-        }
+      const { data: voteRows } = await supabase.from("votes").select("*").eq("draft_id", draft.id);
+      if (!voteRows) return;
+      const freshVotes = {};
+      voteRows.forEach(v => { freshVotes[v.voter_name] = v.rankings; });
+      const freshVoterNames = Object.keys(freshVotes);
+      if (freshVoterNames.length !== voters.length) {
+        const freshTotals = computeTotalsFromVotes(freshVotes, draft.drafters);
+        const freshDraft = { ...draft, votes: freshVotes, totals: freshTotals };
+        onRefreshDraft(freshDraft);
+        setVoteState(v => ({ ...v, voters: freshVoterNames }));
       }
-    }, 5000);
+    }, 4000);
     return () => clearInterval(interval);
   }, [draft.id, voters.length]);
 
@@ -1087,21 +1106,27 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
         </div>
       )}
 
-      {/* ── ADMIN PANEL ── always visible to draft creator */}
-      <div style={{ ...styles.card, border:`1.5px solid ${P.navy}20`, background:"#f8f7ff" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
-          <span style={{ fontSize:16 }}>🔧</span>
-          <span style={{ fontWeight:700, color:P.navy, fontSize:13 }}>Admin</span>
-          <span style={{ fontSize:11, color:"#aaa", marginLeft:4 }}>Live view auto-refreshes every 5s</span>
+      {/* ── ADMIN PANEL ── only for draft creator on this device */}
+      {isAdmin && (
+        <div style={{ ...styles.card, border:`2px solid ${P.navy}`, background:"#f0f2ff" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+            <span style={{ fontSize:16 }}>🔧</span>
+            <span style={{ fontWeight:700, color:P.navy, fontSize:14 }}>Admin Panel</span>
+            <span style={{ fontSize:11, color:"#aaa", marginLeft:4 }}>auto-refreshes every 4s</span>
+          </div>
+          <div style={{ fontSize:13, color:"#555", marginBottom:4 }}>
+            <strong>{voters.length}</strong> vote{voters.length!==1?"s":""} received
+          </div>
+          {voters.length > 0 && (
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
+              {voters.map(v => <span key={v} style={{ ...styles.voterBadge, background:P.navy, color:"#fff" }}>{v} ✓</span>)}
+            </div>
+          )}
+          <button style={{ ...styles.btnPrimary, width:"100%" }} onClick={onFinalize}>
+            Close Voting & See Results →
+          </button>
         </div>
-        <div style={{ fontSize:12, color:"#888", marginBottom:12 }}>
-          {Object.keys(draft.votes||{}).length} vote{Object.keys(draft.votes||{}).length!==1?"s":""} received
-          {voters.length > 0 && `: ${voters.join(", ")}`}
-        </div>
-        <button style={{ ...styles.btnPrimary, width:"100%" }} onClick={onFinalize}>
-          Close Voting & See Results →
-        </button>
-      </div>
+      )}
 
       {Object.keys(draft.totals||{}).length > 0 && (
         <div style={styles.card}>
@@ -1113,12 +1138,13 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
             return (
             <div key={d} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
               <span style={{ ...styles.resultRank, minWidth:32, flexShrink:0 }}>{i+1}{getRankSuffix(i+1)}</span>
-              <div style={{ flex:1, position:"relative", height:32, borderRadius:6, background:"#f0ede9", overflow:"hidden" }}>
+              <div style={{ flex:1, position:"relative", height:36, borderRadius:6, background:"#f0ede9", overflow:"visible" }}>
+                {/* Colored fill bar */}
                 <div style={{ position:"absolute", left:0, top:0, bottom:0, width:`${pct}%`, background:lc, borderRadius:6, transition:"width 0.5s ease" }} />
-                <div style={{ position:"absolute", left:0, top:0, bottom:0, width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 10px" }}>
-                  <span style={{ fontWeight:700, fontSize:13, color:"#fff", textShadow:"0 1px 2px rgba(0,0,0,0.4)", zIndex:1 }}>{d}</span>
-                  <span style={{ fontWeight:800, fontSize:14, color:"#fff", textShadow:"0 1px 2px rgba(0,0,0,0.4)", zIndex:1 }}>{t}</span>
-                </div>
+                {/* Name inside bar on left */}
+                <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontWeight:700, fontSize:13, color:"#fff", textShadow:"0 1px 3px rgba(0,0,0,0.5)", zIndex:2, whiteSpace:"nowrap" }}>{d}</span>
+                {/* Score always outside bar on right in navy */}
+                <span style={{ position:"absolute", right:-44, top:"50%", transform:"translateY(-50%)", fontWeight:900, fontSize:16, color:lc, zIndex:2, minWidth:36, textAlign:"right" }}>{t}</span>
               </div>
             </div>
           );})}
@@ -1148,14 +1174,14 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
           {[sorted[1], sorted[0], sorted[2]].map((entry, pos) => {
             if (!entry) return null;
             const rank = pos===1?1:pos===0?2:3;
-            const heights = [80,110,60];
+            const heights = [100,140,80];
             const ci = draft.drafters.indexOf(entry[0]);
             const dc = draft.drafterDetails?.[entry[0]]?.color || COLORS[ci%COLORS.length];
             return (
-              <div key={entry[0]} style={{ ...styles.podiumCol, height:heights[pos], background:dc }}>
-                <div style={styles.podiumRank}>{rank}</div>
-                <div style={styles.podiumName}>{entry[0]}</div>
-                <div style={styles.podiumScore}>{entry[1]} pts</div>
+              <div key={entry[0]} style={{ ...styles.podiumCol, height:heights[pos], background:dc, justifyContent:"center", gap:4 }}>
+                <div style={{ ...styles.podiumRank, fontSize:32 }}>{rank}</div>
+                <div style={{ ...styles.podiumName, fontSize:12, wordBreak:"break-word" }}>{entry[0]}</div>
+                <div style={{ ...styles.podiumScore, fontSize:11 }}>{entry[1]} pts</div>
               </div>
             );
           })}
@@ -1324,7 +1350,7 @@ function LeaderboardView({ drafts, onBack }) {
                 return (
                   <div key={entry[0]} style={{ ...styles.podiumCol, height:heights[pos], background:bgColors[pos], justifyContent:"center", gap:4 }}>
                     <div style={{ ...styles.podiumRank, fontSize:32 }}>{rank}</div>
-                    <div style={{ ...styles.podiumName, fontSize:13 }}>{entry[0]}</div>
+                    <div style={{ ...styles.podiumName, fontSize:13 }}>{resolveName(entry[0])}</div>
                     <div style={{ ...styles.podiumScore, fontSize:12 }}>{entry[1].total} pts</div>
                   </div>
                 );
@@ -1334,7 +1360,7 @@ function LeaderboardView({ drafts, onBack }) {
               {data.map(([player,stats],i) => (
                 <div key={player} style={{ ...styles.resultRow, marginBottom:12 }}>
                   <span style={{ ...styles.resultRank, minWidth:32, color:i===0?P.amber:i===1?P.steel:i===2?P.red:"#bbb" }}>#{i+1}</span>
-                  <span style={{ flex:1, fontWeight:700, color:P.navy, fontSize:16 }}>{player}</span>
+                  <span style={{ flex:1, fontWeight:700, color:P.navy, fontSize:16 }}>{resolveName(player)}</span>
                   <span style={{ color:"#888", fontSize:13, marginRight:12 }}>avg {stats.avg}</span>
                   <span style={{ fontWeight:800, color:P.red, fontSize:18 }}>{stats.total}</span>
                 </div>
@@ -1347,7 +1373,7 @@ function LeaderboardView({ drafts, onBack }) {
                   <thead>
                     <tr>
                       <th style={styles.th}>Week</th>
-                      {data.map(([p]) => <th key={p} style={styles.th}>{p}</th>)}
+                      {data.map(([p]) => <th key={p} style={styles.th}>{resolveName(p)}</th>)}
                     </tr>
                   </thead>
                   <tbody>
