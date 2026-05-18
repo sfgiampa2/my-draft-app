@@ -993,12 +993,18 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
           <div style={styles.label}>Live Totals (higher = winning)</div>
           {Object.entries(draft.totals).sort((a,b)=>b[1]-a[1]).map(([d,t],i) => {
             const lc = draft.drafterDetails?.[d]?.color || COLORS[draft.drafters.indexOf(d)%COLORS.length];
+            const maxVal = Math.max(...Object.values(draft.totals));
+            const pct = Math.max(20, (t / maxVal) * 100);
             return (
-            <div key={d} style={styles.resultRow}>
-              <span style={styles.resultRank}>{i+1}{getRankSuffix(i+1)}</span>
-              <div style={{ ...styles.resultBar, background:lc, width:`${Math.min(100,(t/Math.max(...Object.values(draft.totals)))*85+10)}%` }} />
-              <span style={styles.resultName}>{d}</span>
-              <span style={styles.resultScore}>{t}</span>
+            <div key={d} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+              <span style={{ ...styles.resultRank, minWidth:32, flexShrink:0 }}>{i+1}{getRankSuffix(i+1)}</span>
+              <div style={{ flex:1, position:"relative", height:32, borderRadius:6, background:"#f0ede9", overflow:"hidden" }}>
+                <div style={{ position:"absolute", left:0, top:0, bottom:0, width:`${pct}%`, background:lc, borderRadius:6, transition:"width 0.5s ease" }} />
+                <div style={{ position:"absolute", left:0, top:0, bottom:0, width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 10px" }}>
+                  <span style={{ fontWeight:700, fontSize:13, color:"#fff", textShadow:"0 1px 2px rgba(0,0,0,0.4)", zIndex:1 }}>{d}</span>
+                  <span style={{ fontWeight:800, fontSize:14, color:"#fff", textShadow:"0 1px 2px rgba(0,0,0,0.4)", zIndex:1 }}>{t}</span>
+                </div>
+              </div>
             </div>
           );})}
         </div>
@@ -1041,23 +1047,59 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
         </div>
       )}
 
+      {/* Rankings summary */}
       <div style={styles.card}>
-        <div style={styles.label}>Full Rankings</div>
-        {sorted.map(([drafter, total], i) => (
-          <div key={drafter} style={{ marginBottom:16 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-              <span style={{ ...styles.resultRank, color:i===0?P.amber:i===1?P.steel:i===2?P.red:"#bbb" }}>
+        <div style={styles.label}>Final Rankings</div>
+        {sorted.map(([drafter, total], i) => {
+          const dc = draft.drafterDetails?.[drafter]?.color || COLORS[draft.drafters.indexOf(drafter)%COLORS.length];
+          return (
+            <div key={drafter} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:"1px solid #f0ede9" }}>
+              <span style={{ ...styles.resultRank, color:i===0?P.amber:i===1?P.steel:i===2?P.red:"#bbb", minWidth:32 }}>
                 {i+1}{getRankSuffix(i+1)}
               </span>
-              <span style={{ flex:1, fontWeight:600, color:P.navy }}>{drafter}</span>
-              <span style={{ color:"#888", fontSize:13 }}>{total} vote pts</span>
-              <span style={{ fontWeight:800, color:draft.drafterDetails?.[drafter]?.color || COLORS[draft.drafters.indexOf(drafter)%COLORS.length] }}>+{pts[drafter]} season pts</span>
+              <div style={{ width:12, height:12, borderRadius:"50%", background:dc, flexShrink:0 }} />
+              <span style={{ flex:1, fontWeight:700, color:P.navy }}>{drafter}</span>
+              <span style={{ color:"#888", fontSize:12 }}>{total} pts</span>
+              <span style={{ fontWeight:800, color:dc, fontSize:12 }}>+{pts[drafter]} season</span>
             </div>
-            <div style={{ ...styles.votePicksPreview, paddingLeft:40 }}>
-              {(draft.picks[drafter]||[]).join(" · ")}
-            </div>
-          </div>
-        ))}
+          );
+        })}
+      </div>
+
+      {/* Round-by-round draft table */}
+      <div style={styles.card}>
+        <div style={styles.label}>Draft Board — Round by Round</div>
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+            <thead>
+              <tr>
+                <th style={{ ...styles.th, minWidth:60 }}>Round</th>
+                {draft.drafters.map((d,i) => {
+                  const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
+                  return <th key={d} style={{ ...styles.th, color:dc, minWidth:100 }}>{d}</th>;
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: draft.numPicks }, (_, round) => (
+                <tr key={round} style={{ background: round%2===0 ? P.white : "#fafaf8" }}>
+                  <td style={{ ...styles.td, fontWeight:700, color:P.navy, fontSize:11, textAlign:"center" }}>
+                    R{round+1}
+                  </td>
+                  {draft.drafters.map((d,i) => {
+                    const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
+                    const pick = (draft.picks[d]||[])[round];
+                    return (
+                      <td key={d} style={{ ...styles.td, borderLeft:`2px solid ${dc}20`, paddingLeft:8 }}>
+                        {pick || <span style={{ color:"#ddd" }}>—</span>}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {Object.keys(draft.votes||{}).length > 0 && (
@@ -1359,11 +1401,11 @@ const styles = {
   resultBar: { height:6, borderRadius:3, flexShrink:0, transition:"width 0.5s ease" },
   resultName: { flex:1, color:P.navy, fontWeight:600, fontSize:14 },
   resultScore: { fontWeight:800, color:P.red },
-  podium: { display:"flex", alignItems:"flex-end", justifyContent:"center", gap:8, margin:"24px 0 16px", height:140 },
-  podiumCol: { flex:1, maxWidth:180, borderRadius:"8px 8px 0 0", display:"flex", flexDirection:"column", justifyContent:"flex-end", alignItems:"center", padding:"8px 8px 10px" },
-  podiumRank: { fontSize:22, fontWeight:900, color:"rgba(255,255,255,0.85)" },
-  podiumName: { fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.9)", textAlign:"center", marginTop:2 },
-  podiumScore: { fontSize:11, color:"rgba(255,255,255,0.7)", marginTop:2 },
+  podium: { display:"flex", alignItems:"flex-end", justifyContent:"center", gap:8, margin:"24px 0 16px", height:160 },
+  podiumCol: { flex:1, minWidth:0, borderRadius:"8px 8px 0 0", display:"flex", flexDirection:"column", justifyContent:"flex-end", alignItems:"center", padding:"8px 6px 10px", overflow:"hidden" },
+  podiumRank: { fontSize:28, fontWeight:900, color:"rgba(255,255,255,0.9)", lineHeight:1 },
+  podiumName: { fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.95)", textAlign:"center", marginTop:4, wordBreak:"break-word", width:"100%" },
+  podiumScore: { fontSize:11, color:"rgba(255,255,255,0.75)", marginTop:2 },
   th: { textAlign:"left", padding:"6px 8px", fontSize:11, color:"#aaa", borderBottom:`1px solid ${P.warmGrey}`, fontWeight:600, letterSpacing:1 },
   td: { padding:"6px 8px", borderBottom:"1px solid #f0ede9", color:"#555" },
 };
