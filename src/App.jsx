@@ -446,7 +446,12 @@ export default function App() {
   function finalizeDraft() {
     const pts = computeSeasonPoints(activeDraft.totals);
     const sorted = Object.entries(activeDraft.totals).sort((a,b)=>b[1]-a[1]);
-    const updated = { ...activeDraft, status:"voted", seasonPoints:pts, winner:sorted[0]?.[0] };
+    const winnerNickname = sorted[0]?.[0];
+    // Resolve to real name using drafterDetails first, then ALIAS_MAP as fallback
+    const winnerRealName = activeDraft.drafterDetails?.[winnerNickname]?.realName
+      || resolveName(winnerNickname)
+      || winnerNickname;
+    const updated = { ...activeDraft, status:"voted", seasonPoints:pts, winner:winnerRealName };
     setActiveDraft(updated);
     setDrafts(prev => prev.map(x => x.id===activeDraft.id ? updated : x));
     saveDraft(updated);
