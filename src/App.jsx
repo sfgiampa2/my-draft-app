@@ -245,7 +245,14 @@ function getRankSuffix(n) {
 function computeSeasonPoints(totals) {
   const sorted = Object.entries(totals).sort((a,b) => b[1]-a[1]);
   const pts = {};
-  sorted.forEach(([name], i) => { pts[name] = i===0?3:i===1?2:i===2?1:0; });
+  sorted.forEach(([name, score], i) => {
+    // Find all entries with the same score to detect ties
+    const rank = sorted.findIndex(([,s]) => s === score);
+    const tiedCount = sorted.filter(([,s]) => s === score).length;
+    // Award points based on best rank in the tie group
+    const basePts = rank===0?3:rank===1?2:rank===2?1:0;
+    pts[name] = basePts;
+  });
   return pts;
 }
 
@@ -463,11 +470,14 @@ export default function App() {
   function finalizeDraft() {
     const pts = computeSeasonPoints(activeDraft.totals);
     const sorted = Object.entries(activeDraft.totals).sort((a,b)=>b[1]-a[1]);
-    const winnerNickname = sorted[0]?.[0];
-    // Resolve to real name using drafterDetails first, then ALIAS_MAP as fallback
-    const winnerRealName = activeDraft.drafterDetails?.[winnerNickname]?.realName
-      || resolveName(winnerNickname)
-      || winnerNickname;
+    const topScore = sorted[0]?.[1];
+    // Get all drafters with the top score (handles ties)
+    const winners = sorted
+      .filter(([,score]) => score === topScore)
+      .map(([nickname]) =>
+        activeDraft.drafterDetails?.[nickname]?.realName || resolveName(nickname) || nickname
+      );
+    const winnerRealName = winners.join(" & ");
     const updated = { ...activeDraft, status:"voted", seasonPoints:pts, winner:winnerRealName };
     setActiveDraft(updated);
     setDrafts(prev => prev.map(x => x.id===activeDraft.id ? updated : x));
@@ -556,7 +566,7 @@ function HomeView({ drafts, onNew, onLeaderboard, onHistory, onVote, onResults }
             <div key={d.id} style={styles.draftCard}>
               <div style={{ flex:1 }}>
                 <div style={styles.draftName}>{d.category}</div>
-                <div style={styles.draftMeta}>Winner: <strong>{d.winner}</strong></div>
+                <div style={styles.draftMeta}>Winner: <strong>{resolveName(d.winner)}</strong></div>
               </div>
               <button style={styles.btnSmall} onClick={() => onResults(d)}>View</button>
             </div>
@@ -1251,19 +1261,19 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
               <thead>
                 <tr>
                   <th style={styles.th}>Voter</th>
-                  {draft.drafters.map(d => <th key={d} style={styles.th}>{d}</th>)}
+                  {draft.drafters.map(d => <th key={d} style={{ ...styles.th, textAlign:"center" }}>{d}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(draft.votes).map(([voter, votes]) => (
                   <tr key={voter}>
                     <td style={styles.td}>{voter}</td>
-                    {draft.drafters.map(d => <td key={d} style={{ ...styles.td, color:votes[d]===1?P.amber:"inherit" }}>{votes[d] ?? "—"}</td>)}
+                    {draft.drafters.map(d => <td key={d} style={{ ...styles.td, textAlign:"center", color:votes[d]===1?P.amber:"inherit" }}>{votes[d] ?? "—"}</td>)}
                   </tr>
                 ))}
                 <tr>
                   <td style={{ ...styles.td, fontWeight:700 }}>Total</td>
-                  {draft.drafters.map(d => <td key={d} style={{ ...styles.td, fontWeight:700, color:P.navy }}>{draft.totals[d] ?? "—"}</td>)}
+                  {draft.drafters.map(d => <td key={d} style={{ ...styles.td, textAlign:"center", fontWeight:700, color:P.navy }}>{draft.totals[d] ?? "—"}</td>)}
                 </tr>
               </tbody>
             </table>
@@ -1499,7 +1509,7 @@ const styles = {
     padding:"10px 24px", borderRadius:30, fontWeight:700, fontSize:14,
     color:"#fff", zIndex:9999,
   },
-  hero: { textAlign:"center", padding:"56px 0 40px" },
+  hero: { textAlign:"center", padding:"56px 0 40px", display:"flex", flexDirection:"column", alignItems:"center" },
   heroTag: { display:"inline-block", background:P.navy, borderRadius:30, padding:"4px 16px", fontSize:11, letterSpacing:3, textTransform:"uppercase", color:P.sky, marginBottom:20 },
   heroTitle: { fontSize:52, fontWeight:900, lineHeight:1.1, margin:"0 0 12px", color:P.navy, letterSpacing:-2 },
   heroAccent: { color:P.red },
