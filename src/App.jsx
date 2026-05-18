@@ -1203,10 +1203,12 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
         <div style={styles.label}>Final Rankings</div>
         {sorted.map(([drafter, total], i) => {
           const dc = draft.drafterDetails?.[drafter]?.color || COLORS[draft.drafters.indexOf(drafter)%COLORS.length];
+          // For ties, find the first index with the same score
+          const rank = sorted.findIndex(([,s]) => s === total) + 1;
           return (
             <div key={drafter} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:"1px solid #f0ede9" }}>
-              <span style={{ ...styles.resultRank, color:i===0?P.amber:i===1?P.steel:i===2?P.red:"#bbb", minWidth:32 }}>
-                {i+1}{getRankSuffix(i+1)}
+              <span style={{ ...styles.resultRank, color:rank===1?P.amber:rank===2?P.steel:rank===3?P.red:"#bbb", minWidth:32 }}>
+                {rank}{getRankSuffix(rank)}
               </span>
               <div style={{ width:12, height:12, borderRadius:"50%", background:dc, flexShrink:0 }} />
               <span style={{ flex:1, fontWeight:700, color:P.navy }}>{drafter}</span>
@@ -1372,14 +1374,16 @@ function LeaderboardView({ drafts, onBack }) {
               })}
             </div>
             <div style={styles.card}>
-              {data.map(([player,stats],i) => (
+              {data.map(([player,stats],i) => {
+                const rank = data.findIndex(([,s]) => s.total === stats.total) + 1;
+                return (
                 <div key={player} style={{ ...styles.resultRow, marginBottom:12 }}>
-                  <span style={{ ...styles.resultRank, minWidth:32, color:i===0?P.amber:i===1?P.steel:i===2?P.red:"#bbb" }}>#{i+1}</span>
+                  <span style={{ ...styles.resultRank, minWidth:32, color:rank===1?P.amber:rank===2?P.steel:rank===3?P.red:"#bbb" }}>#{rank}</span>
                   <span style={{ flex:1, fontWeight:700, color:P.navy, fontSize:16 }}>{resolveName(player)}</span>
                   <span style={{ color:"#888", fontSize:13, marginRight:12 }}>avg {stats.avg}</span>
                   <span style={{ fontWeight:800, color:P.red, fontSize:18 }}>{stats.total}</span>
                 </div>
-              ))}
+              );})}
             </div>
             <div style={styles.card}>
               <div style={styles.label}>Week by Week</div>
@@ -1509,11 +1513,11 @@ const styles = {
     padding:"10px 24px", borderRadius:30, fontWeight:700, fontSize:14,
     color:"#fff", zIndex:9999,
   },
-  hero: { textAlign:"center", padding:"56px 0 40px", display:"flex", flexDirection:"column", alignItems:"center" },
+  hero: { textAlign:"center", padding:"56px 0 40px", display:"flex", flexDirection:"column", alignItems:"center", width:"100%" },
   heroTag: { display:"inline-block", background:P.navy, borderRadius:30, padding:"4px 16px", fontSize:11, letterSpacing:3, textTransform:"uppercase", color:P.sky, marginBottom:20 },
-  heroTitle: { fontSize:52, fontWeight:900, lineHeight:1.1, margin:"0 0 12px", color:P.navy, letterSpacing:-2 },
+  heroTitle: { fontSize:52, fontWeight:900, lineHeight:1.1, margin:"0 0 12px", color:P.navy, letterSpacing:-2, textAlign:"center", width:"100%" },
   heroAccent: { color:P.red },
-  heroSub: { color:"#6b6b6b", fontSize:16, marginBottom:32 },
+  heroSub: { color:"#6b6b6b", fontSize:16, marginBottom:32, textAlign:"center", maxWidth:500 },
   grid2: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:32 },
   navCard: { background:P.white, border:`1px solid ${P.warmGrey}`, borderRadius:12, padding:"20px 16px", cursor:"pointer", textAlign:"left", display:"flex", flexDirection:"column", gap:4, boxShadow:"0 1px 3px rgba(0,0,0,0.06)" },
   navIcon: { fontSize:24, marginBottom:4 },
