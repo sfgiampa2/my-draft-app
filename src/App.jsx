@@ -304,9 +304,9 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  // adminDraftIds: set of draft ids this device created — stored in sessionStorage
+  // adminDraftIds: set of draft ids this device created — stored in localStorage
   const [adminDraftIds, setAdminDraftIds] = useState(() => {
-    try { return new Set(JSON.parse(sessionStorage.getItem("adminDraftIds")||"[]")); }
+    try { return new Set(JSON.parse(localStorage.getItem("adminDraftIds")||"[]")); }
     catch { return new Set(); }
   });
 
@@ -400,7 +400,7 @@ export default function App() {
     // Mark as admin on this device
     const newAdminIds = new Set([...adminDraftIds, newDraft.id]);
     setAdminDraftIds(newAdminIds);
-    sessionStorage.setItem("adminDraftIds", JSON.stringify([...newAdminIds]));
+    localStorage.setItem("adminDraftIds", JSON.stringify([...newAdminIds]));
     setCreating(false);
     setView("draft");
   }
