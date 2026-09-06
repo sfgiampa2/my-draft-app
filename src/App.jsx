@@ -38,6 +38,8 @@ const ALIAS_MAP = {
   "TS":"Tom", "Twizzler":"Tom", "Toad":"Tom", "The Only Tom":"Tom",
   // Direct names pass through
   "Joe":"Joe", "Olivia":"Olivia", "Talal":"Talal", "Cat":"Cat", "Scott":"Scott", "Tom":"Tom",
+  // Extra Olivia aliases
+  "olivia":"Olivia",
 };
 
 function resolveName(name) {
@@ -47,7 +49,7 @@ function resolveName(name) {
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 const SEED_DRAFTS = [
   {
-    id:"d1", category:"Fruits", season:1, week:1, status:"voted",
+    id:"d1", tag:"Food & Drink", category:"Fruits", season:1, week:1, status:"voted",
     drafters:["Tom","Joe","Talal","Cat","Scott"],
     numPicks:3,
     picks:{
@@ -63,7 +65,7 @@ const SEED_DRAFTS = [
     winner:"Cat & Scott",
   },
   {
-    id:"d2", category:"Apps on Your Phone", season:1, week:2, status:"voted",
+    id:"d2", tag:"Lifestyle", category:"Apps on Your Phone", season:1, week:2, status:"voted",
     drafters:["Tom","Joe","Cat","Olivia"],
     numPicks:3,
     picks:{
@@ -78,7 +80,7 @@ const SEED_DRAFTS = [
     winner:"Cat",
   },
   {
-    id:"d3", category:"Rotation Guests", season:1, week:3, status:"voted",
+    id:"d3", tag:"Abstract", category:"Rotation Guests", season:1, week:3, status:"voted",
     drafters:["Tom","Joe","Olivia","Talal","Cat","Scott"],
     numPicks:3,
     picks:{
@@ -95,7 +97,7 @@ const SEED_DRAFTS = [
     winner:"Scott",
   },
   {
-    id:"d4", category:"Best Feelings", season:1, week:4, status:"voted",
+    id:"d4", tag:"Abstract", category:"Best Feelings", season:1, week:4, status:"voted",
     drafters:["Joe","Olivia","Scott","Talal","Cat","Tom"],
     numPicks:3,
     picks:{
@@ -112,7 +114,7 @@ const SEED_DRAFTS = [
     winner:"Talal",
   },
   {
-    id:"d5", category:"Months", season:1, week:5, status:"voted",
+    id:"d5", tag:"Other", category:"Months", season:1, week:5, status:"voted",
     drafters:["Olivia","Joe","Scott","Tom"],
     numPicks:3,
     picks:{
@@ -127,7 +129,7 @@ const SEED_DRAFTS = [
     winner:"Scott",
   },
   {
-    id:"d6", category:"Candies", season:1, week:6, status:"voted",
+    id:"d6", tag:"Food & Drink", category:"Candies", season:1, week:6, status:"voted",
     drafters:["Joe","Scott","Cat","Olivia"],
     numPicks:3,
     picks:{
@@ -142,7 +144,7 @@ const SEED_DRAFTS = [
     winner:"Joe",
   },
   {
-    id:"d7", category:"Childhood TV Shows", season:1, week:7, status:"voted",
+    id:"d7", tag:"Pop Culture", category:"Childhood TV Shows", season:1, week:7, status:"voted",
     drafters:["Olivia","Tom","Joe","Cat","Scott","Talal"],
     numPicks:3,
     picks:{
@@ -159,7 +161,7 @@ const SEED_DRAFTS = [
     winner:"Tom",
   },
   {
-    id:"d8", category:"Worst Corporate Buzzwords", season:1, week:8, status:"voted",
+    id:"d8", tag:"Work & Office", category:"Worst Corporate Buzzwords", season:1, week:8, status:"voted",
     drafters:["Olivia","Joe","Scott","Cat","Tom"],
     numPicks:3,
     picks:{
@@ -175,7 +177,7 @@ const SEED_DRAFTS = [
     winner:"Tom",
   },
   {
-    id:"d9", category:"2000's Bangers", season:1, week:9, status:"voted",
+    id:"d9", tag:"Music", category:"2000's Bangers", season:1, week:9, status:"voted",
     drafters:["Jolly Rancher","Peppermint Patty","Twix","Kit Kat","Snickers","Twizzler"],
     numPicks:7,
     picks:{
@@ -199,7 +201,7 @@ const SEED_DRAFTS = [
     winner:"Twix",
   },
   {
-    id:"d10", category:"Zoo Animals", season:1, week:10, status:"voted",
+    id:"d10", tag:"Animals", category:"Zoo Animals", season:1, week:10, status:"voted",
     drafters:["Crocodile","Jellyfish","Toad","Salamander"],
     numPicks:5,
     picks:{
@@ -298,7 +300,7 @@ export default function App() {
   const [view, setView] = useState("home");
   const [drafts, setDrafts] = useState([]);
   const [activeDraft, setActiveDraft] = useState(null);
-  const [setupData, setSetupData] = useState({ category:"", season:2, week:1, drafters:[], drafterDetails:{}, numPicks:5, imageFile:null, imageUrl:null });
+  const [setupData, setSetupData] = useState({ category:"", tag:"Other", season:2, week:1, drafters:[], drafterDetails:{}, numPicks:5, imageFile:null, imageUrl:null });
   const [draftState, setDraftState] = useState({ picks:{}, currentRound:0, currentDrafter:0 });
   const [voteState, setVoteState] = useState({ voterName:"", rankings:{}, submitted:false, voters:[] });
   const [notification, setNotification] = useState(null);
@@ -360,7 +362,7 @@ export default function App() {
   }
 
   function startSetup() {
-    setSetupData({ category:"", season:2, week:1, drafters:[], drafterDetails:{}, numPicks:5, imageFile:null, imageUrl:null });
+    setSetupData({ category:"", tag:"Other", season:2, week:1, drafters:[], drafterDetails:{}, numPicks:5, imageFile:null, imageUrl:null });
     setView("setup");
   }
 
@@ -382,6 +384,7 @@ export default function App() {
     const newDraft = {
       id: "d" + Date.now(),
       category: setupData.category,
+      tag: setupData.tag || "Other",
       season: setupData.season,
       week: setupData.week,
       status: "drafting",
@@ -434,7 +437,6 @@ export default function App() {
     newPicks[drafter] = [...(newPicks[drafter]||[])];
     newPicks[drafter][index] = newValue;
     setDraftState(prev => ({ ...prev, picks: newPicks }));
-    // Also save to activeDraft so it persists
     const updated = { ...activeDraft, picks: { ...activeDraft.picks, [drafter]: newPicks[drafter] } };
     setActiveDraft(updated);
     setDrafts(prev => prev.map(x => x.id===activeDraft.id ? updated : x));
@@ -636,6 +638,12 @@ function SetupView({ data, setData, onNext, onBack }) {
       <div style={styles.card}>
         <label style={styles.label}>Category</label>
         <input style={styles.input} placeholder="e.g. Best Pizza Toppings…" value={data.category} onChange={e=>setData(d=>({...d,category:e.target.value}))} />
+        <label style={styles.label}>Tag</label>
+        <select style={{ ...styles.input, marginBottom:14 }} value={data.tag||"Other"} onChange={e=>setData(d=>({...d,tag:e.target.value}))}>
+          {["Food & Drink","Music","TV & Film","Pop Culture","Lifestyle","Work & Office","Animals","Abstract","Other"].map(t=>(
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
         <div style={styles.row}>
           <div style={{flex:1}}>
             <label style={styles.label}>Season</label>
@@ -906,7 +914,7 @@ function WheelView({ drafters, drafterDetails, onCreate, creating, onBack }) {
 // ─── DRAFT ROOM ───────────────────────────────────────────────────────────────
 function DraftView({ draft, state, onPick, onEditPick, isAdmin, onBack }) {
   const [pick, setPick] = useState("");
-  const [editing, setEditing] = useState(null); // { drafter, index }
+  const [editing, setEditing] = useState(null);
   const [editVal, setEditVal] = useState("");
   const drafter = draft.drafters[state.currentDrafter];
   const color = draft.drafterDetails?.[drafter]?.color || COLORS[state.currentDrafter % COLORS.length];
@@ -921,16 +929,11 @@ function DraftView({ draft, state, onPick, onEditPick, isAdmin, onBack }) {
     setPick("");
   }
 
-  function startEdit(d, i, val) {
-    setEditing({ drafter: d, index: i });
-    setEditVal(val);
-  }
-
+  function startEdit(d, i, val) { setEditing({ drafter:d, index:i }); setEditVal(val); }
   function saveEdit() {
     if (!editVal.trim() || !editing) return;
     onEditPick(editing.drafter, editing.index, editVal.trim());
-    setEditing(null);
-    setEditVal("");
+    setEditing(null); setEditVal("");
   }
 
   return (
@@ -948,27 +951,25 @@ function DraftView({ draft, state, onPick, onEditPick, isAdmin, onBack }) {
         <input style={styles.bigInput} placeholder="Type your pick…" value={pick} onChange={e=>setPick(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handlePick()} autoFocus />
         <button style={{ ...styles.btnPrimary, marginTop:12, background:color, width:"100%", color:"#fff" }} onClick={handlePick}>Lock It In ✓</button>
       </div>
-      {isAdmin && <div style={{ fontSize:11, color:"#aaa", textAlign:"center", marginBottom:8 }}>Admin: tap any pick to edit it</div>}
       <div style={styles.boardGrid}>
         {draft.drafters.map((d,i) => {
           const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
           return (
           <div key={d} style={{ ...styles.boardCard, borderTopColor:dc }}>
             <div style={{ ...styles.boardName, color:dc }}>{d}</div>
+            {isAdmin && <div style={{ fontSize:10, color:"#ccc", marginBottom:4 }}>tap to edit</div>}
             {(state.picks[d]||[]).map((p,j) => (
-              <div key={j} style={{ ...styles.pickItem, cursor: isAdmin ? "pointer" : "default" }}
-                onClick={() => isAdmin && startEdit(d, j, p)}>
-                {editing?.drafter===d && editing?.index===j ? (
+              <div key={j} style={{ ...styles.pickItem, cursor:isAdmin?"pointer":"default" }} onClick={()=>isAdmin&&startEdit(d,j,p)}>
+                {editing?.drafter===d&&editing?.index===j ? (
                   <div style={{ display:"flex", gap:4, flex:1 }}>
                     <input style={{ ...styles.input, flex:1, marginBottom:0, fontSize:12, padding:"4px 8px" }}
                       value={editVal} onChange={e=>setEditVal(e.target.value)}
-                      onKeyDown={e=>{ if(e.key==="Enter") saveEdit(); if(e.key==="Escape") setEditing(null); }}
-                      autoFocus />
+                      onKeyDown={e=>{if(e.key==="Enter")saveEdit();if(e.key==="Escape")setEditing(null);}} autoFocus />
                     <button style={{ ...styles.btnSmall, padding:"2px 8px", fontSize:11 }} onClick={saveEdit}>✓</button>
                     <button style={{ ...styles.chipX, fontSize:14 }} onClick={()=>setEditing(null)}>×</button>
                   </div>
                 ) : (
-                  <><span style={styles.pickNum}>{j+1}</span> {p}{isAdmin && <span style={{ color:"#ccc", fontSize:10, marginLeft:4 }}>✎</span>}</>
+                  <><span style={styles.pickNum}>{j+1}</span> {p}{isAdmin&&<span style={{ color:"#ccc", fontSize:10, marginLeft:4 }}>✎</span>}</>
                 )}
               </div>
             ))}
@@ -1548,153 +1549,6 @@ function HistoryView({ drafts, onView, onVote, onDelete, onBack }) {
   );
 }
 
-
-// ─── ANALYSIS ─────────────────────────────────────────────────────────────────
-function AnalysisView({ drafts, onBack }) {
-  const [season, setSeason] = useState("all");
-  const voted = drafts.filter(d => d.status === "voted" && (season === "all" || d.season === +season));
-  const seasons = [...new Set(drafts.map(d => d.season))].sort();
-
-  // Build player stats
-  const players = {};
-
-  voted.forEach(draft => {
-    const pts = draft.seasonPoints || {};
-    const totals = draft.totals || {};
-    const sorted = Object.entries(totals).sort((a,b) => b[1]-a[1]);
-    const topScore = sorted[0]?.[1];
-
-    draft.drafters.forEach(nickname => {
-      const realName = draft.drafterDetails?.[nickname]?.realName || resolveName(nickname) || nickname;
-      if (!players[realName]) players[realName] = {
-        drafts: 0, wins: 0, seasonPts: 0, totalVotePts: 0,
-        best: null, finishes: [], avgVotePts: 0,
-      };
-      const p = players[realName];
-      p.drafts++;
-      p.seasonPts += pts[nickname] || 0;
-      p.totalVotePts += totals[nickname] || 0;
-      // Finish position
-      const finish = sorted.findIndex(([n]) => n === nickname) + 1;
-      p.finishes.push(finish);
-      if (p.best === null || finish < p.best) p.best = finish;
-      // Win
-      if (totals[nickname] === topScore) p.wins++;
-    });
-  });
-
-  // Compute averages
-  Object.values(players).forEach(p => {
-    p.avgVotePts = p.drafts ? (p.totalVotePts / p.drafts).toFixed(1) : "0.0";
-    p.avgFinish = p.drafts ? (p.finishes.reduce((a,b)=>a+b,0) / p.finishes.length).toFixed(1) : "—";
-    p.winRate = p.drafts ? Math.round((p.wins / p.drafts) * 100) : 0;
-  });
-
-  const data = Object.entries(players).sort((a,b) => b[1].seasonPts - a[1].seasonPts);
-
-  const statCols = [
-    { key:"seasonPts", label:"Season Pts", color: P.red },
-    { key:"wins", label:"Wins", color: P.amber },
-    { key:"avgVotePts", label:"Avg Vote Pts", color: P.navy },
-    { key:"avgFinish", label:"Avg Finish", color: P.steel, lower:true },
-    { key:"best", label:"Best Finish", color: P.lime, lower:true },
-    { key:"winRate", label:"Win %", color: P.cyan, suffix:"%" },
-  ];
-
-  return (
-    <div style={styles.page}>
-      <button style={styles.backBtn} onClick={onBack}>← Back</button>
-      <h1 style={styles.pageTitle}>Analysis</h1>
-
-      {/* Season filter */}
-      <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
-        <button style={{ ...styles.btnSmall, background:season==="all"?P.navy:P.white, color:season==="all"?P.white:P.navy }}
-          onClick={()=>setSeason("all")}>All Seasons</button>
-        {seasons.map(s => (
-          <button key={s}
-            style={{ ...styles.btnSmall, background:season===s?P.navy:P.white, color:season===s?P.white:P.navy }}
-            onClick={()=>setSeason(s)}>Season {s}</button>
-        ))}
-      </div>
-
-      {data.length === 0 ? (
-        <div style={styles.card}><div style={{ color:"#aaa", textAlign:"center", padding:24 }}>No completed drafts yet.</div></div>
-      ) : (
-        <>
-          {/* Stat cards */}
-          {statCols.map(({ key, label, color, lower, suffix }) => {
-            const sorted = [...data].sort((a,b) => lower
-              ? (a[1][key]||99) - (b[1][key]||99)
-              : (b[1][key]||0) - (a[1][key]||0)
-            );
-            const best = sorted[0]?.[1][key];
-            return (
-              <div key={key} style={styles.card}>
-                <div style={{ ...styles.label, color }}>{label}</div>
-                {sorted.map(([name, stats], i) => {
-                  const val = stats[key];
-                  const isBest = val === best;
-                  const maxVal = sorted[0]?.[1][key] || 1;
-                  const pct = lower
-                    ? Math.max(10, 100 - ((val - 1) / Math.max(maxVal, 1)) * 60)
-                    : Math.max(10, ((val || 0) / (maxVal || 1)) * 100);
-                  return (
-                    <div key={name} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-                      <span style={{ fontWeight:700, minWidth:28, fontSize:12, color: isBest ? color : "#bbb" }}>#{i+1}</span>
-                      <div style={{ flex:1, position:"relative", height:30, borderRadius:6, background:"#f0ede9", overflow:"hidden" }}>
-                        <div style={{ position:"absolute", left:0, top:0, bottom:0, width:`${pct}%`, background:color, opacity:0.85, borderRadius:6 }} />
-                        <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontWeight:700, fontSize:12, color:"#fff", textShadow:"0 1px 2px rgba(0,0,0,0.4)" }}>{name}</span>
-                      </div>
-                      <span style={{ fontWeight:800, fontSize:15, color: isBest ? color : "#888", minWidth:36, textAlign:"right" }}>
-                        {val ?? "—"}{suffix || ""}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
-
-          {/* Full stats table */}
-          <div style={styles.card}>
-            <div style={styles.label}>Full Stats Table</div>
-            <div style={{ overflowX:"auto" }}>
-              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>Player</th>
-                    <th style={{ ...styles.th, textAlign:"center" }}>Drafts</th>
-                    <th style={{ ...styles.th, textAlign:"center" }}>Wins</th>
-                    <th style={{ ...styles.th, textAlign:"center" }}>Win %</th>
-                    <th style={{ ...styles.th, textAlign:"center" }}>Season Pts</th>
-                    <th style={{ ...styles.th, textAlign:"center" }}>Avg Vote</th>
-                    <th style={{ ...styles.th, textAlign:"center" }}>Avg Finish</th>
-                    <th style={{ ...styles.th, textAlign:"center" }}>Best</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.map(([name, s]) => (
-                    <tr key={name}>
-                      <td style={{ ...styles.td, fontWeight:700, color:P.navy }}>{name}</td>
-                      <td style={{ ...styles.td, textAlign:"center" }}>{s.drafts}</td>
-                      <td style={{ ...styles.td, textAlign:"center", color:P.amber, fontWeight:700 }}>{s.wins}</td>
-                      <td style={{ ...styles.td, textAlign:"center" }}>{s.winRate}%</td>
-                      <td style={{ ...styles.td, textAlign:"center", color:P.red, fontWeight:700 }}>{s.seasonPts}</td>
-                      <td style={{ ...styles.td, textAlign:"center" }}>{s.avgVotePts}</td>
-                      <td style={{ ...styles.td, textAlign:"center" }}>{s.avgFinish}</td>
-                      <td style={{ ...styles.td, textAlign:"center", color:P.lime, fontWeight:700 }}>{s.best ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 // ─── STYLES ───────────────────────────────────────────────────────────────────
 const styles = {
   root: {
@@ -1766,3 +1620,164 @@ const styles = {
   th: { textAlign:"left", padding:"6px 8px", fontSize:11, color:"#aaa", borderBottom:`1px solid ${P.warmGrey}`, fontWeight:600, letterSpacing:1 },
   td: { padding:"6px 8px", borderBottom:"1px solid #f0ede9", color:"#555" },
 };
+
+// ─── ANALYSIS ─────────────────────────────────────────────────────────────────
+const DRAFT_TAGS = ["Food & Drink","Music","TV & Film","Pop Culture","Lifestyle","Work & Office","Animals","Abstract","Other"];
+
+function AnalysisView({ drafts, onBack }) {
+  const [season, setSeason] = useState("all");
+  const [tag, setTag] = useState("all");
+  const seasons = [...new Set(drafts.filter(d=>d.status==="voted").map(d=>d.season))].sort();
+  const availTags = [...new Set(drafts.filter(d=>d.status==="voted"&&d.tag).map(d=>d.tag))].sort();
+
+  const voted = drafts.filter(d =>
+    d.status === "voted" &&
+    (season === "all" || d.season === +season) &&
+    (tag === "all" || d.tag === tag)
+  );
+
+  // Build player stats
+  const players = {};
+  voted.forEach(draft => {
+    const pts = draft.seasonPoints || {};
+    const totals = draft.totals || {};
+    const sorted = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
+    const topScore = sorted[0]?.[1];
+    const numVoters = Object.keys(draft.votes||{}).length || 1;
+    const maxPossible = (draft.drafters.length - 1) * numVoters;
+
+    draft.drafters.forEach(nickname => {
+      const realName = draft.drafterDetails?.[nickname]?.realName || resolveName(nickname) || nickname;
+      if (!players[realName]) players[realName] = { drafts:0, wins:0, seasonPts:0, totalVotePts:0, normalizedVote:0, best:null, finishes:[] };
+      const p = players[realName];
+      p.drafts++;
+      p.seasonPts += pts[nickname] || 0;
+      const voteTotal = totals[nickname] || 0;
+      p.totalVotePts += voteTotal;
+      p.normalizedVote += maxPossible > 0 ? (voteTotal / maxPossible) * 100 : 0;
+      const finish = sorted.findIndex(([n])=>n===nickname)+1;
+      p.finishes.push(finish);
+      if (p.best===null||finish<p.best) p.best=finish;
+      if (voteTotal===topScore) p.wins++;
+    });
+  });
+
+  Object.values(players).forEach(p => {
+    p.avgVoteNorm = p.drafts ? (p.normalizedVote/p.drafts).toFixed(1) : "0.0";
+    p.avgFinish = p.drafts ? (p.finishes.reduce((a,b)=>a+b,0)/p.finishes.length).toFixed(1) : "—";
+    p.winRate = p.drafts ? Math.round((p.wins/p.drafts)*100) : 0;
+  });
+
+  const data = Object.entries(players).sort((a,b)=>b[1].seasonPts-a[1].seasonPts);
+
+  const stats = [
+    { key:"seasonPts",   label:"Season Points",       color:P.red,   lower:false },
+    { key:"wins",        label:"Draft Wins",           color:P.amber, lower:false },
+    { key:"winRate",     label:"Win Rate %",           color:P.navy,  lower:false, suffix:"%" },
+    { key:"avgVoteNorm", label:"Avg Vote Score %",     color:P.steel, lower:false, suffix:"%" },
+    { key:"avgFinish",   label:"Avg Finish Position",  color:P.cyan,  lower:true  },
+    { key:"best",        label:"Best Finish",          color:P.lime,  lower:true  },
+  ];
+
+  function VerticalBar({ statDef, data }) {
+    const { key, label, color, lower, suffix } = statDef;
+    const sorted = [...data].sort((a,b)=>lower
+      ? (+a[1][key]||99)-(+b[1][key]||99)
+      : (+b[1][key]||0)-(+a[1][key]||0)
+    );
+    const maxVal = +sorted[0]?.[1][key] || 1;
+    const minVal = lower ? +sorted[sorted.length-1]?.[1][key] || 1 : 0;
+
+    return (
+      <div style={{ ...styles.card, flex:"1 1 calc(50% - 8px)", minWidth:0 }}>
+        <div style={{ ...styles.label, color, marginBottom:16 }}>{label}</div>
+        <div style={{ display:"flex", alignItems:"flex-end", gap:6, height:140, borderBottom:`1px solid ${P.warmGrey}` }}>
+          {sorted.map(([name, s], i) => {
+            const val = +s[key] || 0;
+            const pct = lower
+              ? maxVal > minVal ? (1-((val-minVal)/(maxVal-minVal)))*80+20 : 80
+              : maxVal > 0 ? (val/maxVal)*80+5 : 5;
+            const isBest = i === 0;
+            const shortName = name.length > 5 ? name.slice(0,4)+"." : name;
+            return (
+              <div key={name} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                <span style={{ fontSize:10, fontWeight:800, color: isBest?color:"#888" }}>{val}{suffix||""}</span>
+                <div style={{ width:"100%", height:`${pct}%`, background: isBest?color:`${color}55`, borderRadius:"4px 4px 0 0", transition:"height 0.4s ease" }} />
+                <span style={{ fontSize:9, color:"#888", textAlign:"center", whiteSpace:"nowrap", overflow:"hidden", width:"100%", textOverflow:"ellipsis" }}>{shortName}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.page}>
+      <button style={styles.backBtn} onClick={onBack}>← Back</button>
+      <h1 style={styles.pageTitle}>Analysis</h1>
+
+      {/* Filters */}
+      <div style={{ display:"flex", gap:8, marginBottom:8, flexWrap:"wrap" }}>
+        <button style={{ ...styles.btnSmall, background:season==="all"?P.navy:P.white, color:season==="all"?P.white:P.navy }} onClick={()=>setSeason("all")}>All Seasons</button>
+        {seasons.map(s=>(
+          <button key={s} style={{ ...styles.btnSmall, background:season===s?P.navy:P.white, color:season===s?P.white:P.navy }} onClick={()=>setSeason(s)}>S{s}</button>
+        ))}
+      </div>
+      <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
+        <button style={{ ...styles.btnSmall, background:tag==="all"?P.red:P.white, color:tag==="all"?P.white:P.navy }} onClick={()=>setTag("all")}>All Tags</button>
+        {availTags.map(t=>(
+          <button key={t} style={{ ...styles.btnSmall, background:tag===t?P.red:P.white, color:tag===t?P.white:P.navy }} onClick={()=>setTag(t)}>{t}</button>
+        ))}
+      </div>
+
+      <div style={{ fontSize:12, color:"#888", marginBottom:16 }}>{voted.length} draft{voted.length!==1?"s":""} · {data.length} player{data.length!==1?"s":""}</div>
+
+      {data.length === 0 ? (
+        <div style={styles.card}><div style={{ color:"#aaa", textAlign:"center", padding:24 }}>No completed drafts match these filters.</div></div>
+      ) : (
+        <>
+          {/* Charts — 2 per row */}
+          <div style={{ display:"flex", flexWrap:"wrap", gap:16, marginBottom:16 }}>
+            {stats.map(s => <VerticalBar key={s.key} statDef={s} data={data} />)}
+          </div>
+
+          {/* Full stats table */}
+          <div style={styles.card}>
+            <div style={styles.label}>Full Stats Table</div>
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Player</th>
+                    <th style={{ ...styles.th, textAlign:"center" }}>Drafts</th>
+                    <th style={{ ...styles.th, textAlign:"center" }}>Wins</th>
+                    <th style={{ ...styles.th, textAlign:"center" }}>Win %</th>
+                    <th style={{ ...styles.th, textAlign:"center" }}>Season Pts</th>
+                    <th style={{ ...styles.th, textAlign:"center" }}>Avg Vote %</th>
+                    <th style={{ ...styles.th, textAlign:"center" }}>Avg Finish</th>
+                    <th style={{ ...styles.th, textAlign:"center" }}>Best</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.map(([name,s])=>(
+                    <tr key={name}>
+                      <td style={{ ...styles.td, fontWeight:700, color:P.navy }}>{name}</td>
+                      <td style={{ ...styles.td, textAlign:"center" }}>{s.drafts}</td>
+                      <td style={{ ...styles.td, textAlign:"center", color:P.amber, fontWeight:700 }}>{s.wins}</td>
+                      <td style={{ ...styles.td, textAlign:"center" }}>{s.winRate}%</td>
+                      <td style={{ ...styles.td, textAlign:"center", color:P.red, fontWeight:700 }}>{s.seasonPts}</td>
+                      <td style={{ ...styles.td, textAlign:"center" }}>{s.avgVoteNorm}%</td>
+                      <td style={{ ...styles.td, textAlign:"center" }}>{s.avgFinish}</td>
+                      <td style={{ ...styles.td, textAlign:"center", color:P.lime, fontWeight:700 }}>{s.best??"-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
