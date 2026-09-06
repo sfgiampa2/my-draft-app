@@ -1622,7 +1622,7 @@ const styles = {
 };
 
 // ─── ANALYSIS ─────────────────────────────────────────────────────────────────
-const DRAFT_TAGS = ["Food & Drink","Music","TV & Film","Pop Culture","Lifestyle","Work & Office","Animals","Abstract","Other"];
+const DRAFT_TAGS = ["Food & Drink","Music","TV & Film","Pop Culture","Lifestyle","Work & Office","Sports","Animals","Abstract","Other"];
 
 function AnalysisView({ drafts, onBack }) {
   const [season, setSeason] = useState("all");
@@ -1636,7 +1636,6 @@ function AnalysisView({ drafts, onBack }) {
     (tag === "all" || d.tag === tag)
   );
 
-  // Build player stats
   const players = {};
   voted.forEach(draft => {
     const pts = draft.seasonPoints || {};
@@ -1648,12 +1647,11 @@ function AnalysisView({ drafts, onBack }) {
 
     draft.drafters.forEach(nickname => {
       const realName = draft.drafterDetails?.[nickname]?.realName || resolveName(nickname) || nickname;
-      if (!players[realName]) players[realName] = { drafts:0, wins:0, seasonPts:0, totalVotePts:0, normalizedVote:0, best:null, finishes:[] };
+      if (!players[realName]) players[realName] = { drafts:0, wins:0, seasonPts:0, normalizedVote:0, best:null, finishes:[] };
       const p = players[realName];
       p.drafts++;
       p.seasonPts += pts[nickname] || 0;
       const voteTotal = totals[nickname] || 0;
-      p.totalVotePts += voteTotal;
       p.normalizedVote += maxPossible > 0 ? (voteTotal / maxPossible) * 100 : 0;
       const finish = sorted.findIndex(([n])=>n===nickname)+1;
       p.finishes.push(finish);
@@ -1663,50 +1661,62 @@ function AnalysisView({ drafts, onBack }) {
   });
 
   Object.values(players).forEach(p => {
-    p.avgVoteNorm = p.drafts ? (p.normalizedVote/p.drafts).toFixed(1) : "0.0";
-    p.avgFinish = p.drafts ? (p.finishes.reduce((a,b)=>a+b,0)/p.finishes.length).toFixed(1) : "—";
+    p.avgVoteNorm = p.drafts ? +(p.normalizedVote/p.drafts).toFixed(1) : 0;
+    p.avgFinish = p.drafts ? +(p.finishes.reduce((a,b)=>a+b,0)/p.finishes.length).toFixed(1) : 0;
     p.winRate = p.drafts ? Math.round((p.wins/p.drafts)*100) : 0;
   });
 
   const data = Object.entries(players).sort((a,b)=>b[1].seasonPts-a[1].seasonPts);
 
   const stats = [
-    { key:"seasonPts",   label:"Season Points",       color:P.red,   lower:false },
-    { key:"wins",        label:"Draft Wins",           color:P.amber, lower:false },
-    { key:"winRate",     label:"Win Rate %",           color:P.navy,  lower:false, suffix:"%" },
-    { key:"avgVoteNorm", label:"Avg Vote Score %",     color:P.steel, lower:false, suffix:"%" },
-    { key:"avgFinish",   label:"Avg Finish Position",  color:P.cyan,  lower:true  },
-    { key:"best",        label:"Best Finish",          color:P.lime,  lower:true  },
+    { key:"seasonPts",   label:"Season Points",   color:P.red,   lower:false },
+    { key:"wins",        label:"Draft Wins",       color:P.amber, lower:false },
+    { key:"winRate",     label:"Win Rate",         color:P.navy,  lower:false, suffix:"%" },
+    { key:"avgVoteNorm", label:"Avg Vote Score",   color:P.steel, lower:false, suffix:"%" },
+    { key:"avgFinish",   label:"Avg Finish",       color:P.cyan,  lower:true  },
+    { key:"best",        label:"Best Finish",      color:P.lime,  lower:true  },
   ];
 
-  function VerticalBar({ statDef, data }) {
+  function BarChart({ statDef }) {
     const { key, label, color, lower, suffix } = statDef;
-    const sorted = [...data].sort((a,b)=>lower
-      ? (+a[1][key]||99)-(+b[1][key]||99)
-      : (+b[1][key]||0)-(+a[1][key]||0)
+    const sorted = [...data].sort((a,b) => lower
+      ? (+a[1][key]||99) - (+b[1][key]||99)
+      : (+b[1][key]||0) - (+a[1][key]||0)
     );
-    const maxVal = +sorted[0]?.[1][key] || 1;
-    const minVal = lower ? +sorted[sorted.length-1]?.[1][key] || 1 : 0;
+    const vals = sorted.map(([,s]) => +s[key]||0);
+    const maxVal = Math.max(...vals, 0.01);
+    const minVal = lower ? Math.min(...vals) : 0;
+    const range = maxVal - minVal || 1;
+    const BAR_AREA = 140; // px available for bars
 
     return (
-      <div style={{ ...styles.card, flex:"1 1 calc(50% - 8px)", minWidth:0 }}>
-        <div style={{ ...styles.label, color, marginBottom:16 }}>{label}</div>
-        <div style={{ display:"flex", alignItems:"flex-end", gap:6, height:140, borderBottom:`1px solid ${P.warmGrey}` }}>
+      <div style={{ background:P.white, border:`1px solid ${P.warmGrey}`, borderRadius:14, padding:"16px 12px 12px", boxShadow:"0 1px 4px rgba(0,0,0,0.05)" }}>
+        <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color, fontWeight:700, marginBottom:12 }}>{label}</div>
+        {/* chart area */}
+        <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:BAR_AREA, borderBottom:`2px solid ${P.warmGrey}`, paddingBottom:0 }}>
           {sorted.map(([name, s], i) => {
             const val = +s[key] || 0;
             const pct = lower
-              ? maxVal > minVal ? (1-((val-minVal)/(maxVal-minVal)))*80+20 : 80
-              : maxVal > 0 ? (val/maxVal)*80+5 : 5;
+              ? 1 - (val - minVal) / range   // lower is better so invert
+              : (val - minVal) / range;
+            const barH = Math.max(6, Math.round(pct * (BAR_AREA - 24)));
             const isBest = i === 0;
-            const shortName = name.length > 5 ? name.slice(0,4)+"." : name;
+            const shortName = name.split(" ")[0].slice(0,7);
             return (
-              <div key={name} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-                <span style={{ fontSize:10, fontWeight:800, color: isBest?color:"#888" }}>{val}{suffix||""}</span>
-                <div style={{ width:"100%", height:`${pct}%`, background: isBest?color:`${color}55`, borderRadius:"4px 4px 0 0", transition:"height 0.4s ease" }} />
-                <span style={{ fontSize:9, color:"#888", textAlign:"center", whiteSpace:"nowrap", overflow:"hidden", width:"100%", textOverflow:"ellipsis" }}>{shortName}</span>
+              <div key={name} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-end", height:"100%", gap:2 }}>
+                <span style={{ fontSize:10, fontWeight:800, color:isBest?color:"#bbb" }}>{val}{suffix||""}</span>
+                <div style={{ width:"80%", height:barH, background:isBest?color:`${color}55`, borderRadius:"4px 4px 0 0" }} />
               </div>
             );
           })}
+        </div>
+        {/* name labels below baseline */}
+        <div style={{ display:"flex", gap:4, marginTop:6 }}>
+          {sorted.map(([name,,], i) => (
+            <div key={name} style={{ flex:1, textAlign:"center", fontSize:9, color:i===0?P.navy:"#aaa", fontWeight:i===0?700:400, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              {name.split(" ")[0].slice(0,7)}
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -1717,32 +1727,34 @@ function AnalysisView({ drafts, onBack }) {
       <button style={styles.backBtn} onClick={onBack}>← Back</button>
       <h1 style={styles.pageTitle}>Analysis</h1>
 
-      {/* Filters */}
-      <div style={{ display:"flex", gap:8, marginBottom:8, flexWrap:"wrap" }}>
-        <button style={{ ...styles.btnSmall, background:season==="all"?P.navy:P.white, color:season==="all"?P.white:P.navy }} onClick={()=>setSeason("all")}>All Seasons</button>
-        {seasons.map(s=>(
-          <button key={s} style={{ ...styles.btnSmall, background:season===s?P.navy:P.white, color:season===s?P.white:P.navy }} onClick={()=>setSeason(s)}>S{s}</button>
-        ))}
-      </div>
-      <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
-        <button style={{ ...styles.btnSmall, background:tag==="all"?P.red:P.white, color:tag==="all"?P.white:P.navy }} onClick={()=>setTag("all")}>All Tags</button>
-        {availTags.map(t=>(
-          <button key={t} style={{ ...styles.btnSmall, background:tag===t?P.red:P.white, color:tag===t?P.white:P.navy }} onClick={()=>setTag(t)}>{t}</button>
-        ))}
+      {/* Filters as dropdowns */}
+      <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+          <label style={{ ...styles.label, marginBottom:0 }}>Season</label>
+          <select style={{ ...styles.input, marginBottom:0, width:140 }} value={season} onChange={e=>setSeason(e.target.value)}>
+            <option value="all">All Seasons</option>
+            {seasons.map(s=><option key={s} value={s}>Season {s}</option>)}
+          </select>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+          <label style={{ ...styles.label, marginBottom:0 }}>Tag</label>
+          <select style={{ ...styles.input, marginBottom:0, width:160 }} value={tag} onChange={e=>setTag(e.target.value)}>
+            <option value="all">All Tags</option>
+            {availTags.map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
       </div>
 
-      <div style={{ fontSize:12, color:"#888", marginBottom:16 }}>{voted.length} draft{voted.length!==1?"s":""} · {data.length} player{data.length!==1?"s":""}</div>
+      <div style={{ fontSize:12, color:"#888", marginBottom:20 }}>{voted.length} draft{voted.length!==1?"s":""} · {data.length} player{data.length!==1?"s":""}</div>
 
       {data.length === 0 ? (
         <div style={styles.card}><div style={{ color:"#aaa", textAlign:"center", padding:24 }}>No completed drafts match these filters.</div></div>
       ) : (
         <>
-          {/* Charts — 2 per row */}
-          <div style={{ display:"flex", flexWrap:"wrap", gap:16, marginBottom:16 }}>
-            {stats.map(s => <VerticalBar key={s.key} statDef={s} data={data} />)}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:24 }}>
+            {stats.map(s => <BarChart key={s.key} statDef={s} />)}
           </div>
 
-          {/* Full stats table */}
           <div style={styles.card}>
             <div style={styles.label}>Full Stats Table</div>
             <div style={{ overflowX:"auto" }}>
