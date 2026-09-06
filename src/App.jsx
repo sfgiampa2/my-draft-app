@@ -1520,8 +1520,8 @@ function HistoryView({ drafts, onView, onVote, onDelete, isSuperAdmin, onEditSea
         const sorted = Object.entries(d.totals||{}).sort((a,b)=>b[1]-a[1]);
         const winner = sorted[0];
         return (
-          <div key={d.id} style={{ ...styles.draftCard, flexDirection:"column", alignItems:"stretch", gap:8 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <div key={d.id} style={{ ...styles.draftCard, flexDirection:"column", gap:0 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:12, width:"100%" }}>
               <div style={{ ...styles.draftColorBar, background:COLORS[i%COLORS.length] }} />
               <div style={{ flex:1 }}>
                 <div style={styles.draftName}>{d.category}</div>
@@ -1705,10 +1705,10 @@ function AnalysisView({ drafts, onBack }) {
     const BAR_W = Math.max(28, Math.min(52, Math.floor(280 / sorted.length)));
 
     return (
-      <div style={{ background:P.white, border:`1px solid ${P.warmGrey}`, borderRadius:14, padding:"16px 12px 12px", boxShadow:"0 1px 4px rgba(0,0,0,0.05)" }}>
-        <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color, fontWeight:700, marginBottom:12 }}>{label}</div>
-        <div style={{ overflowX:"auto" }}>
-          <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:BAR_AREA, borderBottom:`2px solid ${P.warmGrey}`, minWidth: sorted.length * (BAR_W + 4) }}>
+      <div style={{ background:P.white, border:`1px solid ${P.warmGrey}`, borderRadius:14, padding:"16px 12px 12px", boxShadow:"0 1px 4px rgba(0,0,0,0.05)", overflow:"hidden" }}>
+        <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color, fontWeight:700, marginBottom:12, textAlign:"center" }}>{label}</div>
+        <div style={{ overflowX:"auto", overflowY:"hidden", WebkitOverflowScrolling:"touch" }}>
+          <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:BAR_AREA, borderBottom:`2px solid ${P.warmGrey}`, minWidth: sorted.length * (BAR_W + 4), margin:"0 auto" }}>
             {sorted.map(([name, s], i) => {
               const val = +s[key] || 0;
               const pct = lower ? 1-(val-minVal)/range : (val-minVal)/range;
@@ -1769,7 +1769,7 @@ function AnalysisView({ drafts, onBack }) {
         <div style={styles.card}><div style={{ color:"#aaa", textAlign:"center", padding:24 }}>No data matches these filters.</div></div>
       ) : (
         <>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:24 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:24, maxWidth:"100%" }}>
             {stats.map(s => <BarChart key={s.key} statDef={s} />)}
           </div>
           <div style={styles.card}>
