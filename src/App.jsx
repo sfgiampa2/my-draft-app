@@ -309,6 +309,8 @@ export default function App() {
     try { return new Set(JSON.parse(localStorage.getItem("adminDraftIds")||"[]")); }
     catch { return new Set(); }
   });
+  // superAdmin: run localStorage.setItem("superAdmin","true") in console to enable
+  const isSuperAdmin = localStorage.getItem("superAdmin") === "true";
 
   useEffect(() => {
     async function loadDrafts() {
@@ -500,6 +502,14 @@ export default function App() {
     if (!window.confirm("Delete this draft? This can't be undone.")) return;
     setDrafts(prev => prev.filter(d => d.id !== id));
     await supabase.from("drafts").delete().eq("id", id);
+  }
+
+  async function editDraftSeason(draftId, newSeason) {
+    const draft = drafts.find(d => d.id === draftId);
+    if (!draft) return;
+    const updated = { ...draft, season: +newSeason };
+    setDrafts(prev => prev.map(d => d.id === draftId ? updated : d));
+    await supabase.from("drafts").upsert({ id: draftId, data: updated });
   }
 
   if (loading) return (
