@@ -1490,11 +1490,12 @@ function LeaderboardView({ drafts, onBack }) {
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
 function HistoryView({ drafts, onView, onVote, onDelete, isSuperAdmin, onEditSeason, onBack }) {
-  const seasons = [...new Set(drafts.map(d=>d.season))].sort();
-  const [selectedSeason, setSelectedSeason] = useState(seasons[0]||1);
+  const seasons = [...new Set(drafts.map(d=>+d.season))].sort((a,b)=>a-b);
+  const [selectedSeason, setSelectedSeason] = useState(null);
   const [editingSeasonFor, setEditingSeasonFor] = useState(null);
   const [newSeasonVal, setNewSeasonVal] = useState("");
-  const filtered = drafts.filter(d=>d.season===selectedSeason);
+  const activeSeason = selectedSeason ?? seasons[0] ?? 1;
+  const filtered = drafts.filter(d=>+d.season===+activeSeason);
 
   function handleSeasonEdit(draftId) {
     if (!newSeasonVal || isNaN(+newSeasonVal)) return;
@@ -1510,8 +1511,8 @@ function HistoryView({ drafts, onView, onVote, onDelete, isSuperAdmin, onEditSea
       <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
         {seasons.map(s => (
           <button key={s}
-            style={{ ...styles.btnSmall, background:selectedSeason===s?P.navy:P.white, color:selectedSeason===s?P.white:P.navy }}
-            onClick={()=>setSelectedSeason(s)}>
+            style={{ ...styles.btnSmall, background:+activeSeason===+s?P.navy:P.white, color:+activeSeason===+s?P.white:P.navy }}
+            onClick={()=>setSelectedSeason(+s)}>
             Season {s}
           </button>
         ))}
