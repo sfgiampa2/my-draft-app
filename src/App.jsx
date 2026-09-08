@@ -309,8 +309,6 @@ export default function App() {
     try { return new Set(JSON.parse(localStorage.getItem("adminDraftIds")||"[]")); }
     catch { return new Set(); }
   });
-  // superAdmin: run localStorage.setItem("superAdmin","true") in console to enable
-  const isSuperAdmin = localStorage.getItem("superAdmin") === "true";
 
   useEffect(() => {
     async function loadDrafts() {
@@ -412,7 +410,7 @@ export default function App() {
     const d = activeDraft;
     const drafter = d.drafters[draftState.currentDrafter];
     const newPicks = { ...draftState.picks };
-    newPicks[drafter] = [...(newPicks[drafter]||[]), toTitleCase(pick)];
+    newPicks[drafter] = [...(newPicks[drafter]||[]), pick.trim()];
     const totalPicks = Object.values(newPicks).flat().length;
     const totalExpected = d.drafters.length * d.numPicks;
     // Snake draft: even rounds go 0..n-1, odd rounds go n-1..0
@@ -429,17 +427,6 @@ export default function App() {
       setVoteState({ voterName:"", rankings:{}, submitted:false, voters:[] });
       setView("vote");
     }
-  }
-
-  function editPick(drafter, index, newValue) {
-    const newPicks = { ...draftState.picks };
-    newPicks[drafter] = [...(newPicks[drafter]||[])];
-    newPicks[drafter][index] = toTitleCase(newValue);
-    setDraftState(prev => ({ ...prev, picks: newPicks }));
-    const updated = { ...activeDraft, picks: { ...activeDraft.picks, [drafter]: newPicks[drafter] } };
-    setActiveDraft(updated);
-    setDrafts(prev => prev.map(x => x.id===activeDraft.id ? updated : x));
-    saveDraft(updated);
   }
 
   function loadDraftForVoting(draft) {
@@ -504,14 +491,6 @@ export default function App() {
     await supabase.from("drafts").delete().eq("id", id);
   }
 
-  async function editDraftSeason(draftId, newSeason) {
-    const draft = drafts.find(d => d.id === draftId);
-    if (!draft) return;
-    const updated = { ...draft, season: +newSeason };
-    setDrafts(prev => prev.map(d => d.id === draftId ? updated : d));
-    await supabase.from("drafts").upsert({ id: draftId, data: updated });
-  }
-
   if (loading) return (
     <div style={{ ...styles.root, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ textAlign:"center", color:P.navy }}>
@@ -521,17 +500,44 @@ export default function App() {
     </div>
   );
 
+  const navItems = [
+    { id:"home", label:"Home", icon:"🏠" },
+    { id:"leaderboard", label:"Standings", icon:"🏆" },
+    { id:"history", label:"History", icon:"📜" },
+    { id:"analysis", label:"Analysis", icon:"📊" },
+  ];
+  const showNav = !["setup","wheel","draft","vote"].includes(view);
+
   return (
-    <div style={styles.root}>
+    <div style={{ ...styles.root, paddingTop: showNav ? 52 : 0 }}>
       {notification && (
         <div style={{ ...styles.notification, background: notification.type==="error" ? P.red : P.lime }}>
           {notification.msg}
         </div>
       )}
-      {view==="home"        && <HomeView drafts={drafts} onNew={startSetup} onLeaderboard={()=>setView("leaderboard")} onHistory={()=>setView("history")} onAnalysis={()=>setView("analysis")} onVote={loadDraftForVoting} onResults={d=>{setActiveDraft(d);setView("results");}} />}
+
+      {/* Top Nav Bar */}
+      {showNav && (
+        <div style={{ position:"fixed", top:0, left:0, right:0, height:52, background:P.navy, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 16px", boxShadow:"0 2px 8px rgba(0,0,0,0.3)" }}>
+          <div style={{ fontWeight:900, fontSize:16, color:"#fff", letterSpacing:-0.5 }}>
+            Thursday's Best <span style={{ color:P.red }}>Draft Room</span>
+          </div>
+          <div style={{ display:"flex", gap:4 }}>
+            {navItems.map(item => (
+              <button key={item.id} onClick={()=>setView(item.id)}
+                style={{ background: view===item.id ? "rgba(255,255,255,0.15)" : "none", border:"none", borderRadius:8, padding:"6px 12px", cursor:"pointer", color: view===item.id ? "#fff" : "rgba(255,255,255,0.6)", fontSize:13, fontWeight: view===item.id ? 700 : 400, fontFamily:"inherit", display:"flex", alignItems:"center", gap:5, transition:"all 0.15s" }}>
+                <span style={{ fontSize:14 }}>{item.icon}</span>
+                <span style={{ display:"none" }}>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {view==="home"        && <HomeView drafts={drafts} onNew={startSetup} onLeaderboard={()=>setView("leaderboard")} onHistory={()=>setView("history")} onVote={loadDraftForVoting} onResults={d=>{setActiveDraft(d);setView("results");}} />}
       {view==="setup"       && <SetupView data={setupData} setData={setSetupData} onNext={()=>setView("wheel")} onBack={()=>setView("home")} />}
       {view==="wheel"       && <WheelView drafters={setupData.drafters||[]} drafterDetails={setupData.drafterDetails||{}} onCreate={createDraft} creating={creating} onBack={()=>setView("setup")} />}
-      {view==="draft"       && activeDraft && <DraftView draft={activeDraft} state={draftState} onPick={submitPick} onEditPick={editPick} isAdmin={adminDraftIds.has(activeDraft.id)} onBack={()=>setView("home")} />}
+      {view==="draft"       && activeDraft && <DraftView draft={activeDraft} state={draftState} onPick={submitPick} onBack={()=>setView("home")} />}
       {view==="vote"        && activeDraft && <VoteView draft={activeDraft} voteState={voteState} setVoteState={setVoteState} onSubmit={submitVote} onFinalize={finalizeDraft} onBack={()=>setView("home")} isAdmin={adminDraftIds.has(activeDraft.id)} onRefreshDraft={d=>{setActiveDraft(d);setDrafts(prev=>prev.map(x=>x.id===d.id?d:x));}} />}
       {view==="results"     && activeDraft && <ResultsView draft={activeDraft} onNewDraft={startSetup} onLeaderboard={()=>setView("leaderboard")} onBack={()=>setView("home")} />}
       {view==="leaderboard" && <LeaderboardView drafts={drafts} onBack={()=>setView("home")} />}
@@ -542,7 +548,7 @@ export default function App() {
 }
 
 // ─── HOME ─────────────────────────────────────────────────────────────────────
-function HomeView({ drafts, onNew, onLeaderboard, onHistory, onAnalysis, onVote, onResults }) {
+function HomeView({ drafts, onNew, onLeaderboard, onHistory, onVote, onResults }) {
   const active = drafts.filter(d => d.status !== "voted");
   const recent = drafts.filter(d => d.status === "voted").slice(-2);
   return (
@@ -553,7 +559,7 @@ function HomeView({ drafts, onNew, onLeaderboard, onHistory, onAnalysis, onVote,
         <p style={styles.heroSub}>Build your roster. Defend your picks. Let the votes decide. Brought to you by Friday's Team Check-in.</p>
         <button style={styles.btnPrimary} onClick={onNew}>+ Start New Draft</button>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:32 }}>
+      <div style={styles.grid2}>
         <button style={styles.navCard} onClick={onLeaderboard}>
           <span style={styles.navIcon}>🏆</span>
           <span style={styles.navLabel}>Leaderboard</span>
@@ -563,11 +569,6 @@ function HomeView({ drafts, onNew, onLeaderboard, onHistory, onAnalysis, onVote,
           <span style={styles.navIcon}>📜</span>
           <span style={styles.navLabel}>Draft History</span>
           <span style={styles.navSub}>All past drafts</span>
-        </button>
-        <button style={styles.navCard} onClick={onAnalysis}>
-          <span style={styles.navIcon}>📊</span>
-          <span style={styles.navLabel}>Analysis</span>
-          <span style={styles.navSub}>Player stats</span>
         </button>
       </div>
       {active.length > 0 && (
@@ -913,10 +914,8 @@ function WheelView({ drafters, drafterDetails, onCreate, creating, onBack }) {
 
 
 // ─── DRAFT ROOM ───────────────────────────────────────────────────────────────
-function DraftView({ draft, state, onPick, onEditPick, isAdmin, onBack }) {
+function DraftView({ draft, state, onPick, onBack }) {
   const [pick, setPick] = useState("");
-  const [editing, setEditing] = useState(null);
-  const [editVal, setEditVal] = useState("");
   const drafter = draft.drafters[state.currentDrafter];
   const color = draft.drafterDetails?.[drafter]?.color || COLORS[state.currentDrafter % COLORS.length];
   const totalPicks = Object.values(state.picks).flat().length;
@@ -928,12 +927,6 @@ function DraftView({ draft, state, onPick, onEditPick, isAdmin, onBack }) {
     if (!pick.trim()) return;
     onPick(pick);
     setPick("");
-  }
-  function startEdit(d, i, val) { setEditing({ drafter:d, index:i }); setEditVal(val); }
-  function saveEdit() {
-    if (!editVal.trim()||!editing) return;
-    onEditPick(editing.drafter, editing.index, editVal.trim());
-    setEditing(null); setEditVal("");
   }
 
   return (
@@ -957,21 +950,8 @@ function DraftView({ draft, state, onPick, onEditPick, isAdmin, onBack }) {
           return (
           <div key={d} style={{ ...styles.boardCard, borderTopColor:dc }}>
             <div style={{ ...styles.boardName, color:dc }}>{d}</div>
-            {isAdmin && <div style={{ fontSize:10, color:"#ccc", marginBottom:2 }}>tap to edit</div>}
             {(state.picks[d]||[]).map((p,j) => (
-              <div key={j} style={{ ...styles.pickItem, cursor:isAdmin?"pointer":"default" }} onClick={()=>isAdmin&&startEdit(d,j,p)}>
-                {editing?.drafter===d&&editing?.index===j ? (
-                  <div style={{ display:"flex", gap:4, flex:1 }}>
-                    <input style={{ ...styles.input, flex:1, marginBottom:0, fontSize:12, padding:"4px 8px" }}
-                      value={editVal} onChange={e=>setEditVal(e.target.value)}
-                      onKeyDown={e=>{if(e.key==="Enter")saveEdit();if(e.key==="Escape")setEditing(null);}} autoFocus />
-                    <button style={{ ...styles.btnSmall, padding:"2px 8px", fontSize:11 }} onClick={saveEdit}>✓</button>
-                    <button style={{ ...styles.chipX, fontSize:14 }} onClick={()=>setEditing(null)}>×</button>
-                  </div>
-                ) : (
-                  <><span style={styles.pickNum}>{j+1}</span> {p}{isAdmin&&<span style={{ color:"#ddd", fontSize:10, marginLeft:4 }}>✎</span>}</>
-                )}
-              </div>
+              <div key={j} style={styles.pickItem}><span style={styles.pickNum}>{j+1}</span> {p}</div>
             ))}
             {Array.from({ length: draft.numPicks-(state.picks[d]||[]).length }).map((_,j) => (
               <div key={"e"+j} style={{ ...styles.pickItem, opacity:0.25 }}>
@@ -1499,20 +1479,10 @@ function LeaderboardView({ drafts, onBack }) {
 }
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
-function HistoryView({ drafts, onView, onVote, onDelete, isSuperAdmin, onEditSeason, onBack }) {
-  const seasons = [...new Set(drafts.map(d=>+d.season))].sort((a,b)=>a-b);
-  const [selectedSeason, setSelectedSeason] = useState(null);
-  const [editingSeasonFor, setEditingSeasonFor] = useState(null);
-  const [newSeasonVal, setNewSeasonVal] = useState("");
-  const activeSeason = selectedSeason ?? seasons[0] ?? 1;
-  const filtered = drafts.filter(d=>+d.season===+activeSeason);
-
-  function handleSeasonEdit(draftId) {
-    if (!newSeasonVal || isNaN(+newSeasonVal)) return;
-    onEditSeason(draftId, +newSeasonVal);
-    setEditingSeasonFor(null);
-    setNewSeasonVal("");
-  }
+function HistoryView({ drafts, onView, onVote, onDelete, onBack }) {
+  const seasons = [...new Set(drafts.map(d=>d.season))].sort();
+  const [selectedSeason, setSelectedSeason] = useState(seasons[0]||1);
+  const filtered = drafts.filter(d=>d.season===selectedSeason);
 
   return (
     <div style={styles.page}>
@@ -1521,8 +1491,8 @@ function HistoryView({ drafts, onView, onVote, onDelete, isSuperAdmin, onEditSea
       <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
         {seasons.map(s => (
           <button key={s}
-            style={{ ...styles.btnSmall, background:+activeSeason===+s?P.navy:P.white, color:+activeSeason===+s?P.white:P.navy }}
-            onClick={()=>setSelectedSeason(+s)}>
+            style={{ ...styles.btnSmall, background:selectedSeason===s?P.navy:P.white, color:selectedSeason===s?P.white:P.navy }}
+            onClick={()=>setSelectedSeason(s)}>
             Season {s}
           </button>
         ))}
@@ -1531,39 +1501,27 @@ function HistoryView({ drafts, onView, onVote, onDelete, isSuperAdmin, onEditSea
         const sorted = Object.entries(d.totals||{}).sort((a,b)=>b[1]-a[1]);
         const winner = sorted[0];
         return (
-          <div key={d.id} style={{ ...styles.draftCard, flexDirection:"column", gap:0 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:12, width:"100%" }}>
-              <div style={{ ...styles.draftColorBar, background:COLORS[i%COLORS.length] }} />
-              <div style={{ flex:1 }}>
-                <div style={styles.draftName}>{d.category}</div>
-                <div style={styles.draftMeta}>
-                  S{d.season} W{d.week} · {d.drafters.length} drafters ·{" "}
-                  {d.status==="voted"&&winner?`Winner: ${resolveName(winner[0])}`:d.status}
-                </div>
-              </div>
-              <div style={{ display:"flex", gap:8, flexShrink:0 }}>
-                <button style={styles.btnSmall} onClick={()=>d.status==="voted"?onView(d):onVote(d)}>
-                  {d.status==="voted"?"Results":"Vote"}
-                </button>
-                {isSuperAdmin && (
-                  <button style={{ ...styles.btnSmall, fontSize:12, padding:"8px 10px" }}
-                    onClick={()=>{ setEditingSeasonFor(d.id); setNewSeasonVal(String(d.season)); }}
-                    title="Edit season">✏️</button>
-                )}
-                <button style={{ ...styles.btnSmall, borderColor:P.red, color:P.red, padding:"8px 10px" }}
-                  onClick={()=>onDelete(d.id)} title="Delete draft">🗑</button>
+          <div key={d.id} style={styles.draftCard}>
+            <div style={{ ...styles.draftColorBar, background:COLORS[i%COLORS.length] }} />
+            <div style={{ flex:1 }}>
+              <div style={styles.draftName}>{d.category}</div>
+              <div style={styles.draftMeta}>
+                S{d.season} W{d.week} · {d.drafters.length} drafters ·{" "}
+                {d.status==="voted"&&winner?`Winner: ${winner[0]}`:d.status}
               </div>
             </div>
-            {isSuperAdmin && editingSeasonFor===d.id && (
-              <div style={{ display:"flex", gap:8, alignItems:"center", paddingLeft:24, paddingBottom:4 }}>
-                <span style={{ fontSize:12, color:"#888" }}>Move to season:</span>
-                <input type="number" min="1" style={{ ...styles.input, width:70, marginBottom:0, padding:"6px 10px", fontSize:13 }}
-                  value={newSeasonVal} onChange={e=>setNewSeasonVal(e.target.value)}
-                  onKeyDown={e=>e.key==="Enter"&&handleSeasonEdit(d.id)} />
-                <button style={{ ...styles.btnPrimary, padding:"6px 14px", fontSize:12 }} onClick={()=>handleSeasonEdit(d.id)}>Save</button>
-                <button style={{ ...styles.btnSmall, padding:"6px 10px", fontSize:12 }} onClick={()=>setEditingSeasonFor(null)}>Cancel</button>
-              </div>
-            )}
+            <div style={{ display:"flex", gap:8 }}>
+              <button style={styles.btnSmall} onClick={()=>d.status==="voted"?onView(d):onVote(d)}>
+                {d.status==="voted"?"Results":"Vote"}
+              </button>
+              <button
+                style={{ ...styles.btnSmall, borderColor:P.red, color:P.red, padding:"8px 10px" }}
+                onClick={()=>onDelete(d.id)}
+                title="Delete draft"
+              >
+                🗑
+              </button>
+            </div>
           </div>
         );
       })}
@@ -1619,7 +1577,7 @@ const styles = {
   boardGrid: { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px,1fr))", gap:12 },
   boardCard: { background:P.white, borderRadius:10, padding:"14px", borderTop:"3px solid", border:`1px solid ${P.warmGrey}`, boxShadow:"0 1px 3px rgba(0,0,0,0.04)" },
   boardName: { fontWeight:800, fontSize:13, marginBottom:8, letterSpacing:1, textTransform:"uppercase" },
-  pickItem: { display:"flex", alignItems:"flex-start", gap:6, fontSize:12, color:"#444", padding:"2px 0", borderBottom:"1px solid #f0ede9", textAlign:"left" },
+  pickItem: { display:"flex", alignItems:"baseline", gap:6, fontSize:13, color:"#444", padding:"3px 0", borderBottom:"1px solid #f0ede9" },
   pickNum: { fontSize:11, color:"#bbb", minWidth:16, fontWeight:700 },
   voteRow: { display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:"1px solid #f0ede9" },
   voteColorBar: { width:4, height:40, borderRadius:2, flexShrink:0 },
@@ -1646,26 +1604,28 @@ const styles = {
 // ─── ANALYSIS ─────────────────────────────────────────────────────────────────
 const DRAFT_TAGS = ["Food & Drink","Music","TV & Film","Pop Culture","Lifestyle","Work & Office","Sports","Animals","Abstract","Other"];
 
+// Extended alias map including "Tom's team", "OP's team" etc groupings
+function resolveToRealName(nickname, drafterDetails) {
+  if (drafterDetails?.[nickname]?.realName) return drafterDetails[nickname].realName;
+  return resolveName(nickname);
+}
+
 function AnalysisView({ drafts, onBack }) {
   const [season, setSeason] = useState("all");
   const [tag, setTag] = useState("all");
   const [drafter, setDrafter] = useState("all");
+  const [showFilters, setShowFilters] = useState(false);
 
-  const seasons = [...new Set(drafts.filter(d=>d.status==="voted").map(d=>d.season))].sort();
+  const seasons = [...new Set(drafts.filter(d=>d.status==="voted").map(d=>+d.season))].sort((a,b)=>a-b);
   const availTags = [...new Set(drafts.filter(d=>d.status==="voted"&&d.tag).map(d=>d.tag))].sort();
 
   const voted = drafts.filter(d =>
     d.status === "voted" &&
-    (season === "all" || d.season === +season) &&
+    (season === "all" || +d.season === +season) &&
     (tag === "all" || d.tag === tag)
   );
 
-  const allPlayers = [...new Set(
-    voted.flatMap(draft => draft.drafters.map(nickname =>
-      draft.drafterDetails?.[nickname]?.realName || resolveName(nickname) || nickname
-    ))
-  )].sort();
-
+  // Build player stats
   const players = {};
   voted.forEach(draft => {
     const pts = draft.seasonPoints || {};
@@ -1674,12 +1634,16 @@ function AnalysisView({ drafts, onBack }) {
     const topScore = sorted[0]?.[1];
 
     draft.drafters.forEach(nickname => {
-      const realName = draft.drafterDetails?.[nickname]?.realName || resolveName(nickname) || nickname;
+      const realName = resolveToRealName(nickname, draft.drafterDetails);
       if (drafter !== "all" && realName !== drafter) return;
-      if (!players[realName]) players[realName] = { drafts:0, wins:0, seasonPts:0, best:null, finishes:[] };
+      if (!players[realName]) players[realName] = { drafts:0, wins:0, seasonPts:0, best:null, finishes:[], weekPts:{} };
       const p = players[realName];
       p.drafts++;
-      p.seasonPts += pts[nickname] || 0;
+      const sp = pts[nickname] || 0;
+      p.seasonPts += sp;
+      // Track weekly points for line chart (by week label)
+      const weekKey = `S${draft.season}W${draft.week}`;
+      p.weekPts[weekKey] = (p.weekPts[weekKey] || 0) + sp;
       const voteTotal = totals[nickname] || 0;
       const finish = sorted.findIndex(([n])=>n===nickname)+1;
       p.finishes.push(finish);
@@ -1694,13 +1658,33 @@ function AnalysisView({ drafts, onBack }) {
   });
 
   const data = Object.entries(players).sort((a,b)=>b[1].seasonPts-a[1].seasonPts);
+  const allPlayers = data.map(([name]) => name).sort();
 
-  const stats = [
-    { key:"seasonPts", label:"Season Points", color:P.red,   lower:false },
-    { key:"wins",      label:"Draft Wins",    color:P.amber, lower:false },
-    { key:"winRate",   label:"Win Rate",      color:P.navy,  lower:false, suffix:"%" },
-    { key:"avgFinish", label:"Avg Finish",    color:P.cyan,  lower:true  },
-  ];
+  // Build cumulative line chart data
+  const sortedWeeks = [...new Set(
+    voted.sort((a,b)=>a.season!==b.season?a.season-b.season:a.week-b.week)
+      .map(d=>`S${d.season}W${d.week}`)
+  )];
+
+  const lineData = data.slice(0,6).map(([name, stats]) => {
+    let cum = 0;
+    return {
+      name,
+      points: sortedWeeks.map(w => { cum += stats.weekPts[w]||0; return cum; })
+    };
+  });
+
+  // Pie chart data — wins per player
+  const pieData = data.filter(([,s])=>s.wins>0).map(([name,s]) => ({ name, value: s.wins }));
+  const pieTotal = pieData.reduce((a,b)=>a+b.value, 0);
+
+  // KPIs — top of analysis
+  const topPts = data[0];
+  const topWins = [...data].sort((a,b)=>b[1].wins-a[1].wins)[0];
+  const topAvgFinish = [...data].filter(([,s])=>s.drafts>=2).sort((a,b)=>a[1].avgFinish-b[1].avgFinish)[0];
+  const topWinRate = [...data].filter(([,s])=>s.drafts>=2).sort((a,b)=>b[1].winRate-a[1].winRate)[0];
+
+  const COLORS_LINE = [P.red, P.navy, P.amber, P.steel, "#8E44AD","#27AE60"];
 
   function BarChart({ statDef }) {
     const { key, label, color, lower, suffix } = statDef;
@@ -1713,13 +1697,13 @@ function AnalysisView({ drafts, onBack }) {
     const minVal = lower ? Math.min(...vals) : 0;
     const range = maxVal - minVal || 1;
     const BAR_AREA = 140;
-    const BAR_W = Math.max(28, Math.min(52, Math.floor(280 / sorted.length)));
+    const BAR_W = Math.max(24, Math.min(48, Math.floor(260 / sorted.length)));
 
     return (
-      <div style={{ background:P.white, border:`1px solid ${P.warmGrey}`, borderRadius:14, padding:"16px 12px 12px", boxShadow:"0 1px 4px rgba(0,0,0,0.05)", overflow:"hidden" }}>
+      <div style={{ background:P.white, border:`1px solid ${P.warmGrey}`, borderRadius:14, padding:"16px 12px 12px", boxShadow:"0 1px 4px rgba(0,0,0,0.05)" }}>
         <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color, fontWeight:700, marginBottom:12, textAlign:"center" }}>{label}</div>
-        <div style={{ overflowX:"auto", overflowY:"hidden", WebkitOverflowScrolling:"touch" }}>
-          <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:BAR_AREA, borderBottom:`2px solid ${P.warmGrey}`, minWidth: sorted.length * (BAR_W + 4), margin:"0 auto" }}>
+        <div style={{ overflowX:"auto" }}>
+          <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:BAR_AREA, borderBottom:`2px solid ${P.warmGrey}`, minWidth: sorted.length * (BAR_W + 4) }}>
             {sorted.map(([name, s], i) => {
               const val = +s[key] || 0;
               const pct = lower ? 1-(val-minVal)/range : (val-minVal)/range;
@@ -1745,33 +1729,169 @@ function AnalysisView({ drafts, onBack }) {
     );
   }
 
+  // Simple SVG line chart
+  function LineChart() {
+    if (sortedWeeks.length < 2) return <div style={{ color:"#aaa", textAlign:"center", padding:24, fontSize:13 }}>Need 2+ weeks of data</div>;
+    const W = 560, H = 200, PAD = 40;
+    const maxPts = Math.max(...lineData.flatMap(d=>d.points), 1);
+    const xStep = (W - PAD*2) / Math.max(sortedWeeks.length - 1, 1);
+    const yScale = (H - PAD*2) / maxPts;
+
+    return (
+      <div style={{ overflowX:"auto" }}>
+        <svg width={Math.max(W, sortedWeeks.length * 50)} height={H} style={{ display:"block" }}>
+          {/* Grid lines */}
+          {[0,25,50,75,100].map(pct => {
+            const y = PAD + (H-PAD*2) * (1 - pct/100);
+            const val = Math.round(maxPts * pct/100);
+            return (
+              <g key={pct}>
+                <line x1={PAD} y1={y} x2={W-PAD/2} y2={y} stroke="#f0ede9" strokeWidth={1} />
+                <text x={PAD-4} y={y+4} textAnchor="end" fontSize={9} fill="#bbb">{val}</text>
+              </g>
+            );
+          })}
+          {/* Week labels */}
+          {sortedWeeks.map((w, i) => (
+            <text key={w} x={PAD + i*xStep} y={H-PAD/3} textAnchor="middle" fontSize={9} fill="#aaa">
+              {w}
+            </text>
+          ))}
+          {/* Lines */}
+          {lineData.map(({ name, points }, li) => {
+            const col = COLORS_LINE[li % COLORS_LINE.length];
+            const pts = points.map((v,i) => `${PAD + i*xStep},${PAD + (H-PAD*2) - v*yScale}`).join(" ");
+            return (
+              <g key={name}>
+                <polyline points={pts} fill="none" stroke={col} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+                {points.map((v,i) => (
+                  <circle key={i} cx={PAD+i*xStep} cy={PAD+(H-PAD*2)-v*yScale} r={3} fill={col} />
+                ))}
+                {/* End label */}
+                <text x={PAD+(points.length-1)*xStep+6} y={PAD+(H-PAD*2)-points[points.length-1]*yScale+4} fontSize={10} fill={col} fontWeight={700}>{name.split(" ")[0]}</text>
+              </g>
+            );
+          })}
+        </svg>
+        {/* Legend */}
+        <div style={{ display:"flex", flexWrap:"wrap", gap:12, padding:"8px 0 4px", justifyContent:"center" }}>
+          {lineData.map(({ name }, li) => (
+            <div key={name} style={{ display:"flex", alignItems:"center", gap:5, fontSize:11 }}>
+              <div style={{ width:20, height:3, background:COLORS_LINE[li%COLORS_LINE.length], borderRadius:2 }} />
+              <span style={{ color:P.navy, fontWeight:600 }}>{name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Simple SVG pie chart
+  function PieChart() {
+    if (pieData.length === 0) return <div style={{ color:"#aaa", textAlign:"center", padding:24, fontSize:13 }}>No wins yet</div>;
+    const R = 80, CX = 120, CY = 100;
+    let startAngle = -Math.PI/2;
+    const slices = pieData.map((d, i) => {
+      const angle = (d.value / pieTotal) * Math.PI * 2;
+      const x1 = CX + R * Math.cos(startAngle);
+      const y1 = CY + R * Math.sin(startAngle);
+      const x2 = CX + R * Math.cos(startAngle + angle);
+      const y2 = CY + R * Math.sin(startAngle + angle);
+      const midAngle = startAngle + angle/2;
+      const lx = CX + (R+20) * Math.cos(midAngle);
+      const ly = CY + (R+20) * Math.sin(midAngle);
+      const large = angle > Math.PI ? 1 : 0;
+      const path = `M${CX},${CY} L${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} Z`;
+      const color = COLORS_LINE[i % COLORS_LINE.length];
+      const res = { path, color, lx, ly, name:d.name, value:d.value, midAngle };
+      startAngle += angle;
+      return res;
+    });
+
+    return (
+      <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
+        <svg width={240} height={200}>
+          {slices.map((s, i) => (
+            <g key={i}>
+              <path d={s.path} fill={s.color} stroke="#fff" strokeWidth={2} />
+            </g>
+          ))}
+          <circle cx={CX} cy={CY} r={32} fill="#fff" />
+          <text x={CX} y={CY-6} textAnchor="middle" fontSize={11} fill={P.navy} fontWeight={700}>{pieTotal}</text>
+          <text x={CX} y={CY+10} textAnchor="middle" fontSize={9} fill="#888">wins</text>
+        </svg>
+        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+          {slices.map((s, i) => (
+            <div key={i} style={{ display:"flex", alignItems:"center", gap:8, fontSize:12 }}>
+              <div style={{ width:12, height:12, borderRadius:3, background:s.color, flexShrink:0 }} />
+              <span style={{ color:P.navy, fontWeight:600 }}>{s.name}</span>
+              <span style={{ color:"#888" }}>{s.value} win{s.value!==1?"s":""}</span>
+              <span style={{ color:P.muted, fontSize:10 }}>({Math.round(s.value/pieTotal*100)}%)</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const stats = [
+    { key:"seasonPts", label:"Season Points", color:P.red,   lower:false },
+    { key:"wins",      label:"Draft Wins",    color:P.amber, lower:false },
+    { key:"winRate",   label:"Win Rate",      color:P.navy,  lower:false, suffix:"%" },
+    { key:"avgFinish", label:"Avg Finish",    color:P.cyan,  lower:true  },
+  ];
+
+  const activeFilters = [season!=="all"?`S${season}`:null, tag!=="all"?tag:null, drafter!=="all"?drafter:null].filter(Boolean);
+
   return (
     <div style={styles.page}>
-      <button style={styles.backBtn} onClick={onBack}>← Back</button>
       <h1 style={styles.pageTitle}>Analysis</h1>
 
-      <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
-        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-          <label style={{ ...styles.label, marginBottom:0 }}>Season</label>
-          <select style={{ ...styles.input, marginBottom:0, width:130 }} value={season} onChange={e=>setSeason(e.target.value)}>
-            <option value="all">All Seasons</option>
-            {seasons.map(s=><option key={s} value={s}>Season {s}</option>)}
-          </select>
+      {/* Filter box */}
+      <div style={{ ...styles.card, marginBottom:16 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer" }} onClick={()=>setShowFilters(f=>!f)}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:13, fontWeight:600, color:P.navy }}>🔍 Filters</span>
+            {activeFilters.length > 0 && (
+              <div style={{ display:"flex", gap:4 }}>
+                {activeFilters.map(f => (
+                  <span key={f} style={{ background:P.navy, color:"#fff", borderRadius:12, padding:"2px 8px", fontSize:11, fontWeight:600 }}>{f}</span>
+                ))}
+              </div>
+            )}
+          </div>
+          <span style={{ color:P.muted, fontSize:12 }}>{showFilters?"▲":"▼"}</span>
         </div>
-        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-          <label style={{ ...styles.label, marginBottom:0 }}>Tag</label>
-          <select style={{ ...styles.input, marginBottom:0, width:150 }} value={tag} onChange={e=>setTag(e.target.value)}>
-            <option value="all">All Tags</option>
-            {availTags.map(t=><option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-          <label style={{ ...styles.label, marginBottom:0 }}>Drafter</label>
-          <select style={{ ...styles.input, marginBottom:0, width:150 }} value={drafter} onChange={e=>setDrafter(e.target.value)}>
-            <option value="all">All Drafters</option>
-            {allPlayers.map(p=><option key={p} value={p}>{p}</option>)}
-          </select>
-        </div>
+        {showFilters && (
+          <div style={{ display:"flex", gap:12, marginTop:16, flexWrap:"wrap" }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+              <label style={{ ...styles.label, marginBottom:0 }}>Season</label>
+              <select style={{ ...styles.input, marginBottom:0, width:130 }} value={season} onChange={e=>setSeason(e.target.value)}>
+                <option value="all">All Seasons</option>
+                {seasons.map(s=><option key={s} value={s}>Season {s}</option>)}
+              </select>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+              <label style={{ ...styles.label, marginBottom:0 }}>Tag</label>
+              <select style={{ ...styles.input, marginBottom:0, width:150 }} value={tag} onChange={e=>setTag(e.target.value)}>
+                <option value="all">All Tags</option>
+                {availTags.map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+              <label style={{ ...styles.label, marginBottom:0 }}>Drafter</label>
+              <select style={{ ...styles.input, marginBottom:0, width:150 }} value={drafter} onChange={e=>setDrafter(e.target.value)}>
+                <option value="all">All Drafters</option>
+                {allPlayers.map(p=><option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            {activeFilters.length > 0 && (
+              <div style={{ display:"flex", alignItems:"flex-end" }}>
+                <button style={{ ...styles.btnSmall, fontSize:12 }} onClick={()=>{ setSeason("all"); setTag("all"); setDrafter("all"); }}>Clear All</button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{ fontSize:12, color:"#888", marginBottom:20 }}>{voted.length} draft{voted.length!==1?"s":""} · {data.length} player{data.length!==1?"s":""}</div>
@@ -1780,9 +1900,40 @@ function AnalysisView({ drafts, onBack }) {
         <div style={styles.card}><div style={{ color:"#aaa", textAlign:"center", padding:24 }}>No data matches these filters.</div></div>
       ) : (
         <>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:24, maxWidth:"100%" }}>
+          {/* KPIs */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:12, marginBottom:20 }}>
+            {[
+              { label:"Points Leader", value:topPts?.[0]||"—", sub:`${topPts?.[1]?.seasonPts||0} pts`, color:P.red },
+              { label:"Most Wins", value:topWins?.[0]||"—", sub:`${topWins?.[1]?.wins||0} wins`, color:P.amber },
+              { label:"Best Avg Finish", value:topAvgFinish?.[0]||"—", sub:`${topAvgFinish?.[1]?.avgFinish||0} avg`, color:P.navy },
+              { label:"Highest Win Rate", value:topWinRate?.[0]||"—", sub:`${topWinRate?.[1]?.winRate||0}%`, color:P.cyan },
+            ].map(kpi => (
+              <div key={kpi.label} style={{ background:P.white, border:`1px solid ${P.warmGrey}`, borderRadius:12, padding:"14px 12px", boxShadow:"0 1px 4px rgba(0,0,0,0.05)", borderTop:`3px solid ${kpi.color}` }}>
+                <div style={{ fontSize:10, color:"#999", fontWeight:600, letterSpacing:1, textTransform:"uppercase", marginBottom:6 }}>{kpi.label}</div>
+                <div style={{ fontSize:16, fontWeight:800, color:P.navy, marginBottom:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{kpi.value}</div>
+                <div style={{ fontSize:12, color:kpi.color, fontWeight:700 }}>{kpi.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Cumulative line chart */}
+          <div style={{ ...styles.card, marginBottom:16 }}>
+            <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:P.navy, fontWeight:700, marginBottom:12 }}>Season Progress — Cumulative Points</div>
+            <LineChart />
+          </div>
+
+          {/* Bar charts 2x2 */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:16 }}>
             {stats.map(s => <BarChart key={s.key} statDef={s} />)}
           </div>
+
+          {/* Pie chart */}
+          <div style={{ ...styles.card, marginBottom:16 }}>
+            <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:P.amber, fontWeight:700, marginBottom:12 }}>Draft Wins Distribution</div>
+            <PieChart />
+          </div>
+
+          {/* Full stats table */}
           <div style={styles.card}>
             <div style={styles.label}>Full Stats Table</div>
             <div style={{ overflowX:"auto" }}>
