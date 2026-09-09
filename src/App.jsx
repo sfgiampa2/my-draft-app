@@ -1709,14 +1709,14 @@ function AnalysisView({ drafts, onBack }) {
   const pieTotal=pieData.reduce((a,b)=>a+b.value,0);
 
   // Horizontal bar chart
-  function HBarChart({ title, data: bdata, color, key, suffix="" }) {
-    const sorted=[...bdata].sort((a,b)=>(+b[1][key]||0)-(+a[1][key]||0));
-    const maxVal=Math.max(...sorted.map(([,s])=>+s[key]||0),0.01);
+  function HBarChart({ title, data: bdata, color, statKey, suffix="" }) {
+    const sorted=[...bdata].sort((a,b)=>(+b[1][statKey]||0)-(+a[1][statKey]||0));
+    const maxVal=Math.max(...sorted.map(([,s])=>+s[statKey]||0),0.01);
     return (
       <div style={{ background:P.white,border:`1px solid ${P.warmGrey}`,borderRadius:14,padding:"16px 14px",boxShadow:"0 1px 4px rgba(0,0,0,0.05)" }}>
         <div style={{ fontSize:11,letterSpacing:2,textTransform:"uppercase",color,fontWeight:700,marginBottom:12 }}>{title}</div>
         {sorted.map(([name,s],i)=>{
-          const val=+s[key]||0;
+          const val=+s[statKey]||0;
           const pct=val/maxVal*100;
           return (
             <div key={name} style={{ display:"flex",alignItems:"center",gap:8,marginBottom:6 }}>
@@ -1948,7 +1948,7 @@ function AnalysisView({ drafts, onBack }) {
             <div style={{ fontSize:11,letterSpacing:2,textTransform:"uppercase",color:P.amber,fontWeight:700,marginBottom:12 }}>Draft Wins Distribution</div>
             <PieChart/>
           </div>
-          <HBarChart title="Win Rate" data={data} color={P.navy} key="winRate" suffix="%" />
+          <HBarChart title="Win Rate" data={data} color={P.navy} statKey="winRate" suffix="%" />
           <VBarChart title="Avg Finish" data={data} color={P.cyan} statKey="avgFinish" lower />
         </div>
 
