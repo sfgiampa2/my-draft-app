@@ -1737,26 +1737,28 @@ function AnalysisView({ drafts, onBack }) {
     const sorted=[...bdata].sort((a,b)=>lower?(+a[1][statKey]||99)-(+b[1][statKey]||99):(+b[1][statKey]||0)-(+a[1][statKey]||0));
     const vals=sorted.map(([,s])=>+s[statKey]||0);
     const maxVal=Math.max(...vals,0.01),minVal=lower?Math.min(...vals):0,range=maxVal-minVal||1;
-    const BAR_AREA=130,BAR_W=Math.max(20,Math.min(44,Math.floor(240/sorted.length)));
+    const BAR_AREA=130;
+    const needsScroll=sorted.length>10;
+    const BAR_W=24;
     return (
       <div style={{ background:P.white,border:`1px solid ${P.warmGrey}`,borderRadius:14,padding:"16px 12px 12px",boxShadow:"0 1px 4px rgba(0,0,0,0.05)" }}>
         <div style={{ fontSize:11,letterSpacing:2,textTransform:"uppercase",color,fontWeight:700,marginBottom:12,textAlign:"center" }}>{title}</div>
         <div style={{ overflowX:"auto",WebkitOverflowScrolling:"touch" }}>
-          <div style={{ display:"flex",alignItems:"flex-end",gap:4,height:BAR_AREA,borderBottom:`2px solid ${P.warmGrey}`,minWidth:sorted.length*(BAR_W+4) }}>
+          <div style={{ display:"flex",alignItems:"flex-end",gap:2,height:BAR_AREA,borderBottom:`2px solid ${P.warmGrey}`,minWidth:needsScroll?sorted.length*(BAR_W+2):0 }}>
             {sorted.map(([name,s],i)=>{
               const val=+s[statKey]||0,pct=lower?1-(val-minVal)/range:(val-minVal)/range;
               const barH=Math.max(6,Math.round(pct*(BAR_AREA-24))),isBest=i===0;
               return (
-                <div key={name} style={{ width:BAR_W,flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",height:"100%",gap:2 }}>
+                <div key={name} style={{ flex:needsScroll?`0 0 ${BAR_W}px`:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",height:"100%",gap:2,minWidth:0 }}>
                   <span style={{ fontSize:9,fontWeight:800,color:isBest?color:"#bbb" }}>{val}{suffix}</span>
                   <div style={{ width:"75%",height:barH,background:isBest?color:`${color}55`,borderRadius:"4px 4px 0 0" }}/>
                 </div>
               );
             })}
           </div>
-          <div style={{ display:"flex",gap:4,marginTop:5,minWidth:sorted.length*(BAR_W+4) }}>
+          <div style={{ display:"flex",gap:2,marginTop:5,minWidth:needsScroll?sorted.length*(BAR_W+2):0 }}>
             {sorted.map(([name],i)=>(
-              <div key={name} style={{ width:BAR_W,flexShrink:0,textAlign:"center",fontSize:8,color:i===0?P.navy:"#aaa",fontWeight:i===0?700:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
+              <div key={name} style={{ flex:needsScroll?`0 0 ${BAR_W}px`:1,textAlign:"center",fontSize:8,color:i===0?P.navy:"#aaa",fontWeight:i===0?700:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0 }}>
                 {name.split(" ")[0].slice(0,7)}
               </div>
             ))}
@@ -1776,7 +1778,7 @@ function AnalysisView({ drafts, onBack }) {
       ang+=a; return s;
     });
     return (
-      <div style={{ display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",height:"100%" }}>
+      <div style={{ overflowX:"auto",WebkitOverflowScrolling:"touch" }}><div style={{ display:"flex",alignItems:"center",gap:16,minWidth:280 }}>
         <svg width={180} height={170}>
           {slices.map((s,i)=><path key={i} d={s.path} fill={s.color} stroke="#fff" strokeWidth={2}/>)}
           <circle cx={CX} cy={CY} r={28} fill="#fff"/>
@@ -1792,7 +1794,7 @@ function AnalysisView({ drafts, onBack }) {
             </div>
           ))}
         </div>
-      </div>
+      </div></div>
     );
   }
 
