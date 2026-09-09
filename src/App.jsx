@@ -36,8 +36,18 @@ const ALIAS_MAP = {
   "SG":"Scott", "Snickers":"Scott", "GOAT":"Scott", "Captain":"Scott", "Salamander":"Scott",
   // Tom
   "TS":"Tom", "Twizzler":"Tom", "Toad":"Tom", "The Only Tom":"Tom",
+  // Season 2 nicknames
+  "Slushie":"Olivia","VenmOP":"Olivia","Omni-Man":"Olivia","Cat-man Islands":"Cat",
+  "Cedar":"Cat","Tenacity":"Tom","Jas-persian":"Jaspar","Jalen Brunson":"Jaspar",
+  "Toasty Talal":"Talal",
+  // Team name groupings
+  "Joe's team":"Joe","Joe's Team":"Joe","Tom's team":"Tom","Tom's Team":"Tom",
+  "Cat's team":"Cat","Cat's Team":"Cat","Scott's team":"Scott","Scott's Team":"Scott",
+  "Olivia's team":"Olivia","Olivia's Team":"Olivia","Talal's team":"Talal","Talal's Team":"Talal",
+  "Jaspar's team":"Jaspar","Jaspar's Team":"Jaspar",
   // Direct names pass through
-  "Joe":"Joe", "Olivia":"Olivia", "Talal":"Talal", "Cat":"Cat", "Scott":"Scott", "Tom":"Tom",
+  "Joe":"Joe","Olivia":"Olivia","Talal":"Talal","Cat":"Cat","Scott":"Scott","Tom":"Tom","Jaspar":"Jaspar",
+  "Carson":"Carson","Kyle":"Kyle","Emma":"Emma","Mike":"Mike","Austi":"Austi",
 };
 
 const DRAFT_TAGS = ["Food & Drink","Music","TV & Film","Pop Culture","Lifestyle","Work & Office","Sports","Animals","Abstract","Other"];
@@ -643,6 +653,14 @@ function SetupView({ data, setData, onNext, onBack }) {
       <div style={styles.card}>
         <label style={styles.label}>Category</label>
         <input style={styles.input} placeholder="e.g. Best Pizza Toppings…" value={data.category} onChange={e=>setData(d=>({...d,category:e.target.value}))} />
+        <label style={styles.label}>Category Tag</label>
+        <select style={{ ...styles.input, marginBottom:14 }} value={data.tag||"Other"} onChange={e=>setData(d=>({...d,tag:e.target.value}))}>
+          {["Food & Drink","Music","TV & Film","Pop Culture","Lifestyle","Work & Office","Sports","Animals","Abstract","Other"].map(t=>(
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+        <label style={styles.label}>Company (optional)</label>
+        <input style={styles.input} placeholder="e.g. Attain, Deloitte…" value={data.company||""} onChange={e=>setData(d=>({...d,company:e.target.value}))} />
         <div style={styles.row}>
           <div style={{flex:1}}>
             <label style={styles.label}>Season</label>
