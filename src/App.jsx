@@ -509,28 +509,23 @@ export default function App() {
   const showNav = !["setup","wheel","draft","vote"].includes(view);
 
   return (
-    <div style={{ ...styles.root, paddingTop: showNav ? 52 : 0 }}>
+    <div style={{ ...styles.root, paddingTop: showNav ? 64 : 0 }}>
       {notification && (
         <div style={{ ...styles.notification, background: notification.type==="error" ? P.red : P.lime }}>
           {notification.msg}
         </div>
       )}
 
-      {/* Top Nav Bar */}
+      {/* Floating pill nav */}
       {showNav && (
-        <div style={{ position:"fixed", top:0, left:0, right:0, height:52, background:P.navy, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 16px", boxShadow:"0 2px 8px rgba(0,0,0,0.3)" }}>
-          <div style={{ fontWeight:900, fontSize:16, color:"#fff", letterSpacing:-0.5 }}>
-            Thursday's Best <span style={{ color:P.red }}>Draft Room</span>
-          </div>
-          <div style={{ display:"flex", gap:4 }}>
-            {navItems.map(item => (
-              <button key={item.id} onClick={()=>setView(item.id)}
-                style={{ background: view===item.id ? "rgba(255,255,255,0.15)" : "none", border:"none", borderRadius:8, padding:"6px 12px", cursor:"pointer", color: view===item.id ? "#fff" : "rgba(255,255,255,0.6)", fontSize:13, fontWeight: view===item.id ? 700 : 400, fontFamily:"inherit", display:"flex", alignItems:"center", gap:5, transition:"all 0.15s" }}>
-                <span style={{ fontSize:14 }}>{item.icon}</span>
-                <span style={{ display:"none" }}>{item.label}</span>
-              </button>
-            ))}
-          </div>
+        <div style={{ position:"fixed", top:12, left:"50%", transform:"translateX(-50%)", zIndex:1000, background:P.navy, borderRadius:40, padding:"6px 8px", display:"flex", gap:4, boxShadow:"0 4px 20px rgba(29,49,105,0.4)", border:"1px solid rgba(255,255,255,0.1)" }}>
+          {navItems.map(item => (
+            <button key={item.id} onClick={()=>setView(item.id)}
+              style={{ background: view===item.id ? "#fff" : "transparent", border:"none", borderRadius:30, padding:"7px 16px", cursor:"pointer", color: view===item.id ? P.navy : "rgba(255,255,255,0.7)", fontSize:13, fontWeight:700, fontFamily:"inherit", display:"flex", alignItems:"center", gap:6, transition:"all 0.2s", whiteSpace:"nowrap" }}>
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
         </div>
       )}
 
@@ -541,7 +536,7 @@ export default function App() {
       {view==="vote"        && activeDraft && <VoteView draft={activeDraft} voteState={voteState} setVoteState={setVoteState} onSubmit={submitVote} onFinalize={finalizeDraft} onBack={()=>setView("home")} isAdmin={adminDraftIds.has(activeDraft.id)} onRefreshDraft={d=>{setActiveDraft(d);setDrafts(prev=>prev.map(x=>x.id===d.id?d:x));}} />}
       {view==="results"     && activeDraft && <ResultsView draft={activeDraft} onNewDraft={startSetup} onLeaderboard={()=>setView("leaderboard")} onBack={()=>setView("home")} />}
       {view==="leaderboard" && <LeaderboardView drafts={drafts} onBack={()=>setView("home")} />}
-      {view==="history"     && <HistoryView drafts={drafts} onView={d=>{setActiveDraft(d);setView("results");}} onVote={loadDraftForVoting} onDelete={deleteDraft} isSuperAdmin={isSuperAdmin} onEditSeason={editDraftSeason} onBack={()=>setView("home")} />}
+      {view==="history"     && <HistoryView drafts={drafts} onView={d=>{setActiveDraft(d);setView("results");}} onVote={loadDraftForVoting} onDelete={deleteDraft} onBack={()=>setView("home")} />}
       {view==="analysis"    && <AnalysisView drafts={drafts} onBack={()=>setView("home")} />}
     </div>
   );
@@ -1480,23 +1475,24 @@ function LeaderboardView({ drafts, onBack }) {
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
 function HistoryView({ drafts, onView, onVote, onDelete, onBack }) {
-  const seasons = [...new Set(drafts.map(d=>d.season))].sort();
-  const [selectedSeason, setSelectedSeason] = useState(seasons[0]||1);
-  const filtered = drafts.filter(d=>d.season===selectedSeason);
+  const seasons = [...new Set(drafts.map(d=>+d.season))].sort((a,b)=>a-b);
+  const [selectedSeason, setSelectedSeason] = useState(null);
+  const activeSeason = selectedSeason ?? seasons[0] ?? 1;
+  const filtered = drafts.filter(d=>+d.season===+activeSeason);
 
   return (
     <div style={styles.page}>
-      <button style={styles.backBtn} onClick={onBack}>← Back</button>
       <h1 style={styles.pageTitle}>Draft History</h1>
       <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
         {seasons.map(s => (
           <button key={s}
-            style={{ ...styles.btnSmall, background:selectedSeason===s?P.navy:P.white, color:selectedSeason===s?P.white:P.navy }}
-            onClick={()=>setSelectedSeason(s)}>
+            style={{ ...styles.btnSmall, background:+activeSeason===+s?P.navy:P.white, color:+activeSeason===+s?P.white:P.navy }}
+            onClick={()=>setSelectedSeason(+s)}>
             Season {s}
           </button>
         ))}
       </div>
+      {filtered.length === 0 && <div style={{ color:"#aaa", textAlign:"center", padding:32 }}>No drafts found for this season.</div>}
       {filtered.map((d,i) => {
         const sorted = Object.entries(d.totals||{}).sort((a,b)=>b[1]-a[1]);
         const winner = sorted[0];
@@ -1507,20 +1503,15 @@ function HistoryView({ drafts, onView, onVote, onDelete, onBack }) {
               <div style={styles.draftName}>{d.category}</div>
               <div style={styles.draftMeta}>
                 S{d.season} W{d.week} · {d.drafters.length} drafters ·{" "}
-                {d.status==="voted"&&winner?`Winner: ${winner[0]}`:d.status}
+                {d.status==="voted"&&winner?`Winner: ${resolveName(winner[0])}`:d.status}
               </div>
             </div>
             <div style={{ display:"flex", gap:8 }}>
               <button style={styles.btnSmall} onClick={()=>d.status==="voted"?onView(d):onVote(d)}>
                 {d.status==="voted"?"Results":"Vote"}
               </button>
-              <button
-                style={{ ...styles.btnSmall, borderColor:P.red, color:P.red, padding:"8px 10px" }}
-                onClick={()=>onDelete(d.id)}
-                title="Delete draft"
-              >
-                🗑
-              </button>
+              <button style={{ ...styles.btnSmall, borderColor:P.red, color:P.red, padding:"8px 10px" }}
+                onClick={()=>onDelete(d.id)} title="Delete draft">🗑</button>
             </div>
           </div>
         );
@@ -1604,7 +1595,6 @@ const styles = {
 // ─── ANALYSIS ─────────────────────────────────────────────────────────────────
 const DRAFT_TAGS = ["Food & Drink","Music","TV & Film","Pop Culture","Lifestyle","Work & Office","Sports","Animals","Abstract","Other"];
 
-// Extended alias map including "Tom's team", "OP's team" etc groupings
 function resolveToRealName(nickname, drafterDetails) {
   if (drafterDetails?.[nickname]?.realName) return drafterDetails[nickname].realName;
   return resolveName(nickname);
@@ -1620,33 +1610,33 @@ function AnalysisView({ drafts, onBack }) {
   const availTags = [...new Set(drafts.filter(d=>d.status==="voted"&&d.tag).map(d=>d.tag))].sort();
 
   const voted = drafts.filter(d =>
-    d.status === "voted" &&
-    (season === "all" || +d.season === +season) &&
-    (tag === "all" || d.tag === tag)
-  );
+    d.status==="voted" &&
+    (season==="all" || +d.season===+season) &&
+    (tag==="all" || d.tag===tag)
+  ).sort((a,b)=>a.season!==b.season?a.season-b.season:a.week-b.week);
 
-  // Build player stats
+  // Build player stats — group ALL aliases to real names
   const players = {};
   voted.forEach(draft => {
     const pts = draft.seasonPoints || {};
     const totals = draft.totals || {};
     const sorted = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
     const topScore = sorted[0]?.[1];
+    const weekKey = `S${draft.season}W${draft.week}`;
 
     draft.drafters.forEach(nickname => {
       const realName = resolveToRealName(nickname, draft.drafterDetails);
-      if (drafter !== "all" && realName !== drafter) return;
-      if (!players[realName]) players[realName] = { drafts:0, wins:0, seasonPts:0, best:null, finishes:[], weekPts:{} };
+      if (drafter!=="all" && realName!==drafter) return;
+      if (!players[realName]) players[realName] = { drafts:0, wins:0, seasonPts:0, best:null, finishes:[], weekPts:{}, weekFinish:{} };
       const p = players[realName];
       p.drafts++;
       const sp = pts[nickname] || 0;
       p.seasonPts += sp;
-      // Track weekly points for line chart (by week label)
-      const weekKey = `S${draft.season}W${draft.week}`;
-      p.weekPts[weekKey] = (p.weekPts[weekKey] || 0) + sp;
+      p.weekPts[weekKey] = (p.weekPts[weekKey]||0) + sp;
       const voteTotal = totals[nickname] || 0;
       const finish = sorted.findIndex(([n])=>n===nickname)+1;
       p.finishes.push(finish);
+      p.weekFinish[weekKey] = finish;
       if (p.best===null||finish<p.best) p.best=finish;
       if (voteTotal===topScore) p.wins++;
     });
@@ -1658,68 +1648,62 @@ function AnalysisView({ drafts, onBack }) {
   });
 
   const data = Object.entries(players).sort((a,b)=>b[1].seasonPts-a[1].seasonPts);
-  const allPlayers = data.map(([name]) => name).sort();
+  const allPlayers = [...new Set(data.map(([name])=>name))].sort();
 
-  // Build cumulative line chart data
-  const sortedWeeks = [...new Set(
-    voted.sort((a,b)=>a.season!==b.season?a.season-b.season:a.week-b.week)
-      .map(d=>`S${d.season}W${d.week}`)
-  )];
+  // Sorted weeks for charts
+  const sortedWeeks = [...new Set(voted.map(d=>`S${d.season}W${d.week}`))];
 
-  const lineData = data.slice(0,6).map(([name, stats]) => {
+  // Cumulative line — ALL players
+  const lineData = data.map(([name, stats], li) => {
+    const COLORS_LINE = [P.red, P.navy, P.amber, P.steel, "#8E44AD","#27AE60","#E67E22","#16A085","#C0392B","#2980B9"];
     let cum = 0;
-    return {
-      name,
-      points: sortedWeeks.map(w => { cum += stats.weekPts[w]||0; return cum; })
-    };
+    return { name, color: COLORS_LINE[li%COLORS_LINE.length], points: sortedWeeks.map(w=>{ cum+=(stats.weekPts[w]||0); return cum; }) };
   });
 
-  // Pie chart data — wins per player
-  const pieData = data.filter(([,s])=>s.wins>0).map(([name,s]) => ({ name, value: s.wins }));
-  const pieTotal = pieData.reduce((a,b)=>a+b.value, 0);
+  // Pie data
+  const COLORS_LINE = [P.red, P.navy, P.amber, P.steel, "#8E44AD","#27AE60","#E67E22","#16A085","#C0392B","#2980B9"];
+  const pieData = data.filter(([,s])=>s.wins>0).map(([name,s],i)=>({ name, value:s.wins, color:COLORS_LINE[i%COLORS_LINE.length] }));
+  const pieTotal = pieData.reduce((a,b)=>a+b.value,0);
 
-  // KPIs — top of analysis
+  // KPIs
   const topPts = data[0];
   const topWins = [...data].sort((a,b)=>b[1].wins-a[1].wins)[0];
   const topAvgFinish = [...data].filter(([,s])=>s.drafts>=2).sort((a,b)=>a[1].avgFinish-b[1].avgFinish)[0];
   const topWinRate = [...data].filter(([,s])=>s.drafts>=2).sort((a,b)=>b[1].winRate-a[1].winRate)[0];
 
-  const COLORS_LINE = [P.red, P.navy, P.amber, P.steel, "#8E44AD","#27AE60"];
+  const stats = [
+    { key:"seasonPts", label:"Season Points", color:P.red,  lower:false },
+    { key:"winRate",   label:"Win Rate",      color:P.navy, lower:false, suffix:"%" },
+    { key:"avgFinish", label:"Avg Finish",    color:P.cyan, lower:true  },
+  ];
+
+  const activeFilters = [season!=="all"?`Season ${season}`:null, tag!=="all"?tag:null, drafter!=="all"?drafter:null].filter(Boolean);
 
   function BarChart({ statDef }) {
     const { key, label, color, lower, suffix } = statDef;
-    const sorted = [...data].sort((a,b) => lower
-      ? (+a[1][key]||99) - (+b[1][key]||99)
-      : (+b[1][key]||0) - (+a[1][key]||0)
-    );
-    const vals = sorted.map(([,s]) => +s[key]||0);
-    const maxVal = Math.max(...vals, 0.01);
-    const minVal = lower ? Math.min(...vals) : 0;
-    const range = maxVal - minVal || 1;
-    const BAR_AREA = 140;
-    const BAR_W = Math.max(24, Math.min(48, Math.floor(260 / sorted.length)));
-
+    const sorted = [...data].sort((a,b)=>lower?(+a[1][key]||99)-(+b[1][key]||99):(+b[1][key]||0)-(+a[1][key]||0));
+    const vals = sorted.map(([,s])=>+s[key]||0);
+    const maxVal = Math.max(...vals,0.01), minVal = lower?Math.min(...vals):0, range=maxVal-minVal||1;
+    const BAR_AREA=140, BAR_W=Math.max(24,Math.min(48,Math.floor(260/sorted.length)));
     return (
       <div style={{ background:P.white, border:`1px solid ${P.warmGrey}`, borderRadius:14, padding:"16px 12px 12px", boxShadow:"0 1px 4px rgba(0,0,0,0.05)" }}>
         <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color, fontWeight:700, marginBottom:12, textAlign:"center" }}>{label}</div>
-        <div style={{ overflowX:"auto" }}>
-          <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:BAR_AREA, borderBottom:`2px solid ${P.warmGrey}`, minWidth: sorted.length * (BAR_W + 4) }}>
-            {sorted.map(([name, s], i) => {
-              const val = +s[key] || 0;
-              const pct = lower ? 1-(val-minVal)/range : (val-minVal)/range;
-              const barH = Math.max(6, Math.round(pct * (BAR_AREA - 28)));
-              const isBest = i === 0;
+        <div style={{ overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
+          <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:BAR_AREA, borderBottom:`2px solid ${P.warmGrey}`, minWidth:sorted.length*(BAR_W+4) }}>
+            {sorted.map(([name,s],i)=>{
+              const val=+s[key]||0, pct=lower?1-(val-minVal)/range:(val-minVal)/range;
+              const barH=Math.max(6,Math.round(pct*(BAR_AREA-28))), isBest=i===0;
               return (
-                <div key={name} style={{ width:BAR_W, flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-end", height:"100%", gap:2 }}>
-                  <span style={{ fontSize:10, fontWeight:800, color:isBest?color:"#bbb" }}>{val}{suffix||""}</span>
-                  <div style={{ width:"75%", height:barH, background:isBest?color:`${color}55`, borderRadius:"4px 4px 0 0" }} />
+                <div key={name} style={{ width:BAR_W,flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",height:"100%",gap:2 }}>
+                  <span style={{ fontSize:10,fontWeight:800,color:isBest?color:"#bbb" }}>{val}{suffix||""}</span>
+                  <div style={{ width:"75%",height:barH,background:isBest?color:`${color}55`,borderRadius:"4px 4px 0 0" }} />
                 </div>
               );
             })}
           </div>
-          <div style={{ display:"flex", gap:4, marginTop:6, minWidth: sorted.length * (BAR_W + 4) }}>
-            {sorted.map(([name], i) => (
-              <div key={name} style={{ width:BAR_W, flexShrink:0, textAlign:"center", fontSize:9, color:i===0?P.navy:"#aaa", fontWeight:i===0?700:400, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+          <div style={{ display:"flex",gap:4,marginTop:6,minWidth:sorted.length*(BAR_W+4) }}>
+            {sorted.map(([name],i)=>(
+              <div key={name} style={{ width:BAR_W,flexShrink:0,textAlign:"center",fontSize:9,color:i===0?P.navy:"#aaa",fontWeight:i===0?700:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
                 {name.split(" ")[0].slice(0,8)}
               </div>
             ))}
@@ -1729,56 +1713,39 @@ function AnalysisView({ drafts, onBack }) {
     );
   }
 
-  // Simple SVG line chart
   function LineChart() {
-    if (sortedWeeks.length < 2) return <div style={{ color:"#aaa", textAlign:"center", padding:24, fontSize:13 }}>Need 2+ weeks of data</div>;
-    const W = 560, H = 200, PAD = 40;
-    const maxPts = Math.max(...lineData.flatMap(d=>d.points), 1);
-    const xStep = (W - PAD*2) / Math.max(sortedWeeks.length - 1, 1);
-    const yScale = (H - PAD*2) / maxPts;
-
+    if (sortedWeeks.length<2) return <div style={{ color:"#aaa",textAlign:"center",padding:24,fontSize:13 }}>Need 2+ weeks of data</div>;
+    const W=560,H=220,PAD_L=36,PAD_R=60,PAD_T=16,PAD_B=32;
+    const chartW=W-PAD_L-PAD_R, chartH=H-PAD_T-PAD_B;
+    const maxPts=Math.max(...lineData.flatMap(d=>d.points),1);
+    const xStep=chartW/Math.max(sortedWeeks.length-1,1);
     return (
-      <div style={{ overflowX:"auto" }}>
-        <svg width={Math.max(W, sortedWeeks.length * 50)} height={H} style={{ display:"block" }}>
-          {/* Grid lines */}
-          {[0,25,50,75,100].map(pct => {
-            const y = PAD + (H-PAD*2) * (1 - pct/100);
-            const val = Math.round(maxPts * pct/100);
-            return (
-              <g key={pct}>
-                <line x1={PAD} y1={y} x2={W-PAD/2} y2={y} stroke="#f0ede9" strokeWidth={1} />
-                <text x={PAD-4} y={y+4} textAnchor="end" fontSize={9} fill="#bbb">{val}</text>
-              </g>
-            );
+      <div style={{ overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
+        <svg width={Math.max(W, sortedWeeks.length*44+PAD_L+PAD_R)} height={H}>
+          {[0,25,50,75,100].map(pct=>{
+            const y=PAD_T+chartH*(1-pct/100);
+            return <g key={pct}>
+              <line x1={PAD_L} y1={y} x2={W-PAD_R} y2={y} stroke="#f0ede9" strokeWidth={1}/>
+              <text x={PAD_L-4} y={y+4} textAnchor="end" fontSize={9} fill="#bbb">{Math.round(maxPts*pct/100)}</text>
+            </g>;
           })}
-          {/* Week labels */}
-          {sortedWeeks.map((w, i) => (
-            <text key={w} x={PAD + i*xStep} y={H-PAD/3} textAnchor="middle" fontSize={9} fill="#aaa">
-              {w}
-            </text>
+          {sortedWeeks.map((w,i)=>(
+            <text key={w} x={PAD_L+i*xStep} y={H-PAD_B/3} textAnchor="middle" fontSize={8} fill="#aaa">{w}</text>
           ))}
-          {/* Lines */}
-          {lineData.map(({ name, points }, li) => {
-            const col = COLORS_LINE[li % COLORS_LINE.length];
-            const pts = points.map((v,i) => `${PAD + i*xStep},${PAD + (H-PAD*2) - v*yScale}`).join(" ");
-            return (
-              <g key={name}>
-                <polyline points={pts} fill="none" stroke={col} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
-                {points.map((v,i) => (
-                  <circle key={i} cx={PAD+i*xStep} cy={PAD+(H-PAD*2)-v*yScale} r={3} fill={col} />
-                ))}
-                {/* End label */}
-                <text x={PAD+(points.length-1)*xStep+6} y={PAD+(H-PAD*2)-points[points.length-1]*yScale+4} fontSize={10} fill={col} fontWeight={700}>{name.split(" ")[0]}</text>
-              </g>
-            );
+          {lineData.map(({name,color,points})=>{
+            const pts=points.map((v,i)=>`${PAD_L+i*xStep},${PAD_T+chartH-v/maxPts*chartH}`).join(" ");
+            return <g key={name}>
+              <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"/>
+              {points.map((v,i)=><circle key={i} cx={PAD_L+i*xStep} cy={PAD_T+chartH-v/maxPts*chartH} r={3} fill={color}/>)}
+              <text x={PAD_L+(points.length-1)*xStep+5} y={PAD_T+chartH-points[points.length-1]/maxPts*chartH+4} fontSize={9} fill={color} fontWeight={700}>{name.split(" ")[0].slice(0,6)}</text>
+            </g>;
           })}
         </svg>
-        {/* Legend */}
-        <div style={{ display:"flex", flexWrap:"wrap", gap:12, padding:"8px 0 4px", justifyContent:"center" }}>
-          {lineData.map(({ name }, li) => (
-            <div key={name} style={{ display:"flex", alignItems:"center", gap:5, fontSize:11 }}>
-              <div style={{ width:20, height:3, background:COLORS_LINE[li%COLORS_LINE.length], borderRadius:2 }} />
-              <span style={{ color:P.navy, fontWeight:600 }}>{name}</span>
+        <div style={{ display:"flex",flexWrap:"wrap",gap:10,padding:"8px 0 4px",justifyContent:"center" }}>
+          {lineData.map(({name,color})=>(
+            <div key={name} style={{ display:"flex",alignItems:"center",gap:5,fontSize:11 }}>
+              <div style={{ width:20,height:3,background:color,borderRadius:2 }}/>
+              <span style={{ color:P.navy,fontWeight:600 }}>{name}</span>
             </div>
           ))}
         </div>
@@ -1786,47 +1753,32 @@ function AnalysisView({ drafts, onBack }) {
     );
   }
 
-  // Simple SVG pie chart
   function PieChart() {
-    if (pieData.length === 0) return <div style={{ color:"#aaa", textAlign:"center", padding:24, fontSize:13 }}>No wins yet</div>;
-    const R = 80, CX = 120, CY = 100;
-    let startAngle = -Math.PI/2;
-    const slices = pieData.map((d, i) => {
-      const angle = (d.value / pieTotal) * Math.PI * 2;
-      const x1 = CX + R * Math.cos(startAngle);
-      const y1 = CY + R * Math.sin(startAngle);
-      const x2 = CX + R * Math.cos(startAngle + angle);
-      const y2 = CY + R * Math.sin(startAngle + angle);
-      const midAngle = startAngle + angle/2;
-      const lx = CX + (R+20) * Math.cos(midAngle);
-      const ly = CY + (R+20) * Math.sin(midAngle);
-      const large = angle > Math.PI ? 1 : 0;
-      const path = `M${CX},${CY} L${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} Z`;
-      const color = COLORS_LINE[i % COLORS_LINE.length];
-      const res = { path, color, lx, ly, name:d.name, value:d.value, midAngle };
-      startAngle += angle;
-      return res;
+    if (pieData.length===0) return <div style={{ color:"#aaa",textAlign:"center",padding:24,fontSize:13 }}>No wins yet</div>;
+    const R=80,CX=110,CY=100;
+    let ang=-Math.PI/2;
+    const slices=pieData.map(d=>{
+      const a=(d.value/pieTotal)*Math.PI*2;
+      const x1=CX+R*Math.cos(ang),y1=CY+R*Math.sin(ang),x2=CX+R*Math.cos(ang+a),y2=CY+R*Math.sin(ang+a);
+      const large=a>Math.PI?1:0;
+      const s={path:`M${CX},${CY} L${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} Z`,color:d.color,name:d.name,value:d.value};
+      ang+=a; return s;
     });
-
     return (
-      <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
-        <svg width={240} height={200}>
-          {slices.map((s, i) => (
-            <g key={i}>
-              <path d={s.path} fill={s.color} stroke="#fff" strokeWidth={2} />
-            </g>
-          ))}
-          <circle cx={CX} cy={CY} r={32} fill="#fff" />
-          <text x={CX} y={CY-6} textAnchor="middle" fontSize={11} fill={P.navy} fontWeight={700}>{pieTotal}</text>
-          <text x={CX} y={CY+10} textAnchor="middle" fontSize={9} fill="#888">wins</text>
+      <div style={{ display:"flex",alignItems:"center",gap:24,flexWrap:"wrap" }}>
+        <svg width={220} height={200}>
+          {slices.map((s,i)=><path key={i} d={s.path} fill={s.color} stroke="#fff" strokeWidth={2}/>)}
+          <circle cx={CX} cy={CY} r={34} fill="#fff"/>
+          <text x={CX} y={CY-5} textAnchor="middle" fontSize={13} fill={P.navy} fontWeight={800}>{pieTotal}</text>
+          <text x={CX} y={CY+12} textAnchor="middle" fontSize={9} fill="#888">total wins</text>
         </svg>
-        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-          {slices.map((s, i) => (
-            <div key={i} style={{ display:"flex", alignItems:"center", gap:8, fontSize:12 }}>
-              <div style={{ width:12, height:12, borderRadius:3, background:s.color, flexShrink:0 }} />
-              <span style={{ color:P.navy, fontWeight:600 }}>{s.name}</span>
+        <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
+          {slices.map(s=>(
+            <div key={s.name} style={{ display:"flex",alignItems:"center",gap:8,fontSize:13 }}>
+              <div style={{ width:14,height:14,borderRadius:3,background:s.color,flexShrink:0 }}/>
+              <span style={{ color:P.navy,fontWeight:600 }}>{s.name}</span>
               <span style={{ color:"#888" }}>{s.value} win{s.value!==1?"s":""}</span>
-              <span style={{ color:P.muted, fontSize:10 }}>({Math.round(s.value/pieTotal*100)}%)</span>
+              <span style={{ color:P.muted,fontSize:11 }}>({Math.round(s.value/pieTotal*100)}%)</span>
             </div>
           ))}
         </div>
@@ -1834,139 +1786,187 @@ function AnalysisView({ drafts, onBack }) {
     );
   }
 
-  const stats = [
-    { key:"seasonPts", label:"Season Points", color:P.red,   lower:false },
-    { key:"wins",      label:"Draft Wins",    color:P.amber, lower:false },
-    { key:"winRate",   label:"Win Rate",      color:P.navy,  lower:false, suffix:"%" },
-    { key:"avgFinish", label:"Avg Finish",    color:P.cyan,  lower:true  },
-  ];
+  function HeatMap() {
+    if (sortedWeeks.length===0||data.length===0) return <div style={{ color:"#aaa",textAlign:"center",padding:24,fontSize:13 }}>No data yet</div>;
+    const CELL_W=52, CELL_H=32;
+    const numPlayers=data.length;
+    // Color by finish: 1st=dark navy, last=light
+    function finishColor(finish, totalInDraft) {
+      if (!finish) return "#f5f5f5";
+      const pct=(finish-1)/Math.max(totalInDraft-1,1);
+      // Interpolate navy→warmGrey
+      const r=Math.round(29+(218-29)*pct), g=Math.round(49+(211-49)*pct), b=Math.round(105+(204-105)*pct);
+      return `rgb(${r},${g},${b})`;
+    }
+    // Get num drafters per week
+    const weekDrafterCount = {};
+    voted.forEach(d => { weekDrafterCount[`S${d.season}W${d.week}`] = d.drafters.length; });
 
-  const activeFilters = [season!=="all"?`S${season}`:null, tag!=="all"?tag:null, drafter!=="all"?drafter:null].filter(Boolean);
+    return (
+      <div style={{ overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
+        <table style={{ borderCollapse:"collapse", fontSize:11 }}>
+          <thead>
+            <tr>
+              <th style={{ ...styles.th, minWidth:80, textAlign:"left", position:"sticky", left:0, background:P.white, zIndex:2 }}>Player</th>
+              {sortedWeeks.map(w=>{
+                const draft = voted.find(d=>`S${d.season}W${d.week}`===w);
+                return <th key={w} style={{ ...styles.th, width:CELL_W, textAlign:"center", fontSize:9, whiteSpace:"nowrap" }}>
+                  <div>{w}</div>
+                  <div style={{ color:"#bbb",fontWeight:400,fontSize:8,maxWidth:CELL_W,overflow:"hidden",textOverflow:"ellipsis" }}>{draft?.category?.slice(0,8)}</div>
+                </th>;
+              })}
+              <th style={{ ...styles.th, textAlign:"center" }}>Avg</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map(([name,stats])=>(
+              <tr key={name}>
+                <td style={{ ...styles.td, fontWeight:700, color:P.navy, position:"sticky", left:0, background:P.white, zIndex:1, whiteSpace:"nowrap", paddingRight:12 }}>{name}</td>
+                {sortedWeeks.map(w=>{
+                  const finish = stats.weekFinish[w];
+                  const total = weekDrafterCount[w] || 1;
+                  const bg = finishColor(finish, total);
+                  const textColor = finish && (finish-1)/(total-1||1) < 0.5 ? "#fff" : P.navy;
+                  return (
+                    <td key={w} style={{ textAlign:"center", padding:"4px 2px", background:bg, border:"1px solid #f0f0f0" }}>
+                      {finish ? (
+                        <span style={{ fontWeight:700, fontSize:12, color:textColor }}>{finish}{finish===1?"st":finish===2?"nd":finish===3?"rd":"th"}</span>
+                      ) : (
+                        <span style={{ color:"#ddd", fontSize:11 }}>—</span>
+                      )}
+                    </td>
+                  );
+                })}
+                <td style={{ ...styles.td, textAlign:"center", fontWeight:700, color:P.navy }}>{stats.avgFinish||"—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {/* Legend */}
+        <div style={{ display:"flex",alignItems:"center",gap:8,marginTop:10,fontSize:11,color:"#888" }}>
+          <span>Finish:</span>
+          <div style={{ display:"flex",gap:2 }}>
+            {[1,2,3,4,5].map(n=>(
+              <div key={n} style={{ width:28,height:18,background:finishColor(n,5),borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:n<=2?"#fff":P.navy }}>{n}{n===1?"st":n===2?"nd":n===3?"rd":"th"}</div>
+            ))}
+          </div>
+          <span style={{ fontSize:10 }}>← 1st (dark) to last (light)</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.page}>
       <h1 style={styles.pageTitle}>Analysis</h1>
 
-      {/* Filter box */}
-      <div style={{ ...styles.card, marginBottom:16 }}>
+      {/* Filter box — styled like image */}
+      <div style={{ ...styles.card, marginBottom:20, border:`1.5px solid ${showFilters?P.navy:P.warmGrey}` }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer" }} onClick={()=>setShowFilters(f=>!f)}>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontSize:13, fontWeight:600, color:P.navy }}>🔍 Filters</span>
-            {activeFilters.length > 0 && (
-              <div style={{ display:"flex", gap:4 }}>
-                {activeFilters.map(f => (
-                  <span key={f} style={{ background:P.navy, color:"#fff", borderRadius:12, padding:"2px 8px", fontSize:11, fontWeight:600 }}>{f}</span>
-                ))}
-              </div>
-            )}
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ fontSize:16 }}>▼</span>
+            <span style={{ fontWeight:700, fontSize:14, color:P.navy }}>Filters</span>
+            {activeFilters.length>0 && activeFilters.map(f=>(
+              <span key={f} style={{ background:P.navy,color:"#fff",borderRadius:12,padding:"2px 10px",fontSize:11,fontWeight:600 }}>{f}</span>
+            ))}
           </div>
-          <span style={{ color:P.muted, fontSize:12 }}>{showFilters?"▲":"▼"}</span>
+          {activeFilters.length>0 && (
+            <button style={{ ...styles.btnSmall, fontSize:11, padding:"4px 10px" }} onClick={e=>{e.stopPropagation();setSeason("all");setTag("all");setDrafter("all");}}>Reset filters</button>
+          )}
         </div>
         {showFilters && (
-          <div style={{ display:"flex", gap:12, marginTop:16, flexWrap:"wrap" }}>
-            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-              <label style={{ ...styles.label, marginBottom:0 }}>Season</label>
-              <select style={{ ...styles.input, marginBottom:0, width:130 }} value={season} onChange={e=>setSeason(e.target.value)}>
-                <option value="all">All Seasons</option>
-                {seasons.map(s=><option key={s} value={s}>Season {s}</option>)}
-              </select>
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-              <label style={{ ...styles.label, marginBottom:0 }}>Tag</label>
-              <select style={{ ...styles.input, marginBottom:0, width:150 }} value={tag} onChange={e=>setTag(e.target.value)}>
-                <option value="all">All Tags</option>
-                {availTags.map(t=><option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-              <label style={{ ...styles.label, marginBottom:0 }}>Drafter</label>
-              <select style={{ ...styles.input, marginBottom:0, width:150 }} value={drafter} onChange={e=>setDrafter(e.target.value)}>
-                <option value="all">All Drafters</option>
-                {allPlayers.map(p=><option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-            {activeFilters.length > 0 && (
-              <div style={{ display:"flex", alignItems:"flex-end" }}>
-                <button style={{ ...styles.btnSmall, fontSize:12 }} onClick={()=>{ setSeason("all"); setTag("all"); setDrafter("all"); }}>Clear All</button>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:16, marginTop:16 }}>
+            {[
+              { label:"Season", value:season, setter:setSeason, opts:[{v:"all",l:"All"},...seasons.map(s=>({v:s,l:`Season ${s}`}))] },
+              { label:"Tag", value:tag, setter:setTag, opts:[{v:"all",l:"All"},...availTags.map(t=>({v:t,l:t}))] },
+              { label:"Drafter", value:drafter, setter:setDrafter, opts:[{v:"all",l:"All"},...allPlayers.map(p=>({v:p,l:p}))] },
+            ].map(f=>(
+              <div key={f.label}>
+                <label style={{ ...styles.label, marginBottom:6 }}>{f.label}</label>
+                <select style={{ ...styles.input, marginBottom:0, width:"100%", borderRadius:8, border:`1px solid ${P.warmGrey}` }} value={f.value} onChange={e=>f.setter(e.target.value)}>
+                  {f.opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+                </select>
               </div>
-            )}
+            ))}
           </div>
         )}
       </div>
 
-      <div style={{ fontSize:12, color:"#888", marginBottom:20 }}>{voted.length} draft{voted.length!==1?"s":""} · {data.length} player{data.length!==1?"s":""}</div>
+      <div style={{ fontSize:12,color:"#888",marginBottom:20 }}>{voted.length} draft{voted.length!==1?"s":""} · {data.length} player{data.length!==1?"s":""}</div>
 
-      {data.length === 0 ? (
-        <div style={styles.card}><div style={{ color:"#aaa", textAlign:"center", padding:24 }}>No data matches these filters.</div></div>
-      ) : (
-        <>
-          {/* KPIs */}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:12, marginBottom:20 }}>
-            {[
-              { label:"Points Leader", value:topPts?.[0]||"—", sub:`${topPts?.[1]?.seasonPts||0} pts`, color:P.red },
-              { label:"Most Wins", value:topWins?.[0]||"—", sub:`${topWins?.[1]?.wins||0} wins`, color:P.amber },
-              { label:"Best Avg Finish", value:topAvgFinish?.[0]||"—", sub:`${topAvgFinish?.[1]?.avgFinish||0} avg`, color:P.navy },
-              { label:"Highest Win Rate", value:topWinRate?.[0]||"—", sub:`${topWinRate?.[1]?.winRate||0}%`, color:P.cyan },
-            ].map(kpi => (
-              <div key={kpi.label} style={{ background:P.white, border:`1px solid ${P.warmGrey}`, borderRadius:12, padding:"14px 12px", boxShadow:"0 1px 4px rgba(0,0,0,0.05)", borderTop:`3px solid ${kpi.color}` }}>
-                <div style={{ fontSize:10, color:"#999", fontWeight:600, letterSpacing:1, textTransform:"uppercase", marginBottom:6 }}>{kpi.label}</div>
-                <div style={{ fontSize:16, fontWeight:800, color:P.navy, marginBottom:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{kpi.value}</div>
-                <div style={{ fontSize:12, color:kpi.color, fontWeight:700 }}>{kpi.sub}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Cumulative line chart */}
-          <div style={{ ...styles.card, marginBottom:16 }}>
-            <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:P.navy, fontWeight:700, marginBottom:12 }}>Season Progress — Cumulative Points</div>
-            <LineChart />
-          </div>
-
-          {/* Bar charts 2x2 */}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:16 }}>
-            {stats.map(s => <BarChart key={s.key} statDef={s} />)}
-          </div>
-
-          {/* Pie chart */}
-          <div style={{ ...styles.card, marginBottom:16 }}>
-            <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:P.amber, fontWeight:700, marginBottom:12 }}>Draft Wins Distribution</div>
-            <PieChart />
-          </div>
-
-          {/* Full stats table */}
-          <div style={styles.card}>
-            <div style={styles.label}>Full Stats Table</div>
-            <div style={{ overflowX:"auto" }}>
-              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>Player</th>
-                    <th style={{ ...styles.th, textAlign:"center" }}>Drafts</th>
-                    <th style={{ ...styles.th, textAlign:"center" }}>Wins</th>
-                    <th style={{ ...styles.th, textAlign:"center" }}>Win %</th>
-                    <th style={{ ...styles.th, textAlign:"center" }}>Season Pts</th>
-                    <th style={{ ...styles.th, textAlign:"center" }}>Avg Finish</th>
-                    <th style={{ ...styles.th, textAlign:"center" }}>Best</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.map(([name,s])=>(
-                    <tr key={name}>
-                      <td style={{ ...styles.td, fontWeight:700, color:P.navy }}>{name}</td>
-                      <td style={{ ...styles.td, textAlign:"center" }}>{s.drafts}</td>
-                      <td style={{ ...styles.td, textAlign:"center", color:P.amber, fontWeight:700 }}>{s.wins}</td>
-                      <td style={{ ...styles.td, textAlign:"center" }}>{s.winRate}%</td>
-                      <td style={{ ...styles.td, textAlign:"center", color:P.red, fontWeight:700 }}>{s.seasonPts}</td>
-                      <td style={{ ...styles.td, textAlign:"center" }}>{s.avgFinish}</td>
-                      <td style={{ ...styles.td, textAlign:"center", color:P.lime, fontWeight:700 }}>{s.best??"-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {data.length===0 ? (
+        <div style={styles.card}><div style={{ color:"#aaa",textAlign:"center",padding:24 }}>No data matches these filters.</div></div>
+      ) : (<>
+        {/* KPIs */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:12, marginBottom:20 }}>
+          {[
+            { label:"Points Leader", value:topPts?.[0]||"—", sub:`${topPts?.[1]?.seasonPts||0} pts`, color:P.red },
+            { label:"Most Wins", value:topWins?.[0]||"—", sub:`${topWins?.[1]?.wins||0} wins`, color:P.amber },
+            { label:"Best Avg Finish", value:topAvgFinish?.[0]||"—", sub:`${topAvgFinish?.[1]?.avgFinish||0} avg`, color:P.navy },
+            { label:"Top Win Rate", value:topWinRate?.[0]||"—", sub:`${topWinRate?.[1]?.winRate||0}%`, color:P.cyan },
+          ].map(kpi=>(
+            <div key={kpi.label} style={{ background:P.white,border:`1px solid ${P.warmGrey}`,borderRadius:12,padding:"14px 12px",boxShadow:"0 1px 4px rgba(0,0,0,0.05)",borderTop:`3px solid ${kpi.color}` }}>
+              <div style={{ fontSize:10,color:"#999",fontWeight:600,letterSpacing:1,textTransform:"uppercase",marginBottom:6 }}>{kpi.label}</div>
+              <div style={{ fontSize:15,fontWeight:800,color:P.navy,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{kpi.value}</div>
+              <div style={{ fontSize:12,color:kpi.color,fontWeight:700 }}>{kpi.sub}</div>
             </div>
+          ))}
+        </div>
+
+        {/* Cumulative line chart */}
+        <div style={{ ...styles.card,marginBottom:16 }}>
+          <div style={{ fontSize:11,letterSpacing:2,textTransform:"uppercase",color:P.navy,fontWeight:700,marginBottom:12 }}>Season Progress — Cumulative Points</div>
+          <LineChart />
+        </div>
+
+        {/* Heat map */}
+        <div style={{ ...styles.card,marginBottom:16 }}>
+          <div style={{ fontSize:11,letterSpacing:2,textTransform:"uppercase",color:P.navy,fontWeight:700,marginBottom:12 }}>Finish Position Heat Map</div>
+          <HeatMap />
+        </div>
+
+        {/* Bar charts (3 — no wins since pie has it) */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:16, marginBottom:16 }}>
+          {stats.map(s=><BarChart key={s.key} statDef={s}/>)}
+        </div>
+
+        {/* Pie chart */}
+        <div style={{ ...styles.card,marginBottom:16 }}>
+          <div style={{ fontSize:11,letterSpacing:2,textTransform:"uppercase",color:P.amber,fontWeight:700,marginBottom:12 }}>Draft Wins Distribution</div>
+          <PieChart />
+        </div>
+
+        {/* Table */}
+        <div style={styles.card}>
+          <div style={styles.label}>Full Stats Table</div>
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%",borderCollapse:"collapse",fontSize:12 }}>
+              <thead><tr>
+                <th style={styles.th}>Player</th>
+                <th style={{ ...styles.th,textAlign:"center" }}>Drafts</th>
+                <th style={{ ...styles.th,textAlign:"center" }}>Wins</th>
+                <th style={{ ...styles.th,textAlign:"center" }}>Win %</th>
+                <th style={{ ...styles.th,textAlign:"center" }}>Season Pts</th>
+                <th style={{ ...styles.th,textAlign:"center" }}>Avg Finish</th>
+                <th style={{ ...styles.th,textAlign:"center" }}>Best</th>
+              </tr></thead>
+              <tbody>
+                {data.map(([name,s])=>(
+                  <tr key={name}>
+                    <td style={{ ...styles.td,fontWeight:700,color:P.navy }}>{name}</td>
+                    <td style={{ ...styles.td,textAlign:"center" }}>{s.drafts}</td>
+                    <td style={{ ...styles.td,textAlign:"center",color:P.amber,fontWeight:700 }}>{s.wins}</td>
+                    <td style={{ ...styles.td,textAlign:"center" }}>{s.winRate}%</td>
+                    <td style={{ ...styles.td,textAlign:"center",color:P.red,fontWeight:700 }}>{s.seasonPts}</td>
+                    <td style={{ ...styles.td,textAlign:"center" }}>{s.avgFinish}</td>
+                    <td style={{ ...styles.td,textAlign:"center",color:P.lime,fontWeight:700 }}>{s.best??"-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </>
-      )}
+        </div>
+      </>)}
     </div>
   );
 }
