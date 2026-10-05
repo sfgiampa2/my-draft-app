@@ -24,30 +24,62 @@ const COLORS = [P.navy, P.red, P.steel, P.lime, P.amber, P.cyan, P.sky, "#7C5CBF
 
 // ─── Alias → Real Name Map ────────────────────────────────────────────────────
 const ALIAS_MAP = {
+  // ── Season 1 nicknames ──
   // Joe
-  "JB":"Joe", "Jolly Rancher":"Joe", "Fiancee":"Joe", "Jellyfish":"Joe",
+  "JB":"Joe","Jolly Rancher":"Joe","Fiancee":"Joe","Jellyfish":"Joe",
   // Olivia
-  "OP":"Olivia", "Peppermint Patty":"Olivia", "Flake":"Olivia",
+  "OP":"Olivia","Peppermint Patty":"Olivia","Flake":"Olivia",
   // Talal
-  "TA":"Talal", "Twix":"Talal",
+  "TA":"Talal","Twix":"Talal",
   // Cat
-  "CC":"Cat", "Kit Kat":"Cat", "Everyone hates me":"Cat", "Crocodile":"Cat",
+  "CC":"Cat","Kit Kat":"Cat","Everyone hates me":"Cat","Crocodile":"Cat",
   // Scott
-  "SG":"Scott", "Snickers":"Scott", "GOAT":"Scott", "Captain":"Scott", "Salamander":"Scott",
+  "SG":"Scott","Snickers":"Scott","GOAT":"Scott","Captain":"Scott","Salamander":"Scott",
   // Tom
-  "TS":"Tom", "Twizzler":"Tom", "Toad":"Tom", "The Only Tom":"Tom",
-  // Season 2 nicknames
-  "Slushie":"Olivia","VenmOP":"Olivia","Omni-Man":"Olivia","Cat-man Islands":"Cat",
-  "Cedar":"Cat","Tenacity":"Tom","Jas-persian":"Jaspar","Jalen Brunson":"Jaspar",
-  "Toasty Talal":"Talal",
-  // Team name groupings
+  "TS":"Tom","Twizzler":"Tom","Toad":"Tom","The Only Tom":"Tom",
+
+  // ── Season 2 nicknames (by draft) ──
+  // D1 – Slushies
+  "Slushie":"Olivia","Juice":"Joe","Champagne":"Cat","Sprite":"Scott",
+  // D2 – Flags
+  "Joe-maica":"Joe","Tal-vula":"Talal","B-Olivia":"Olivia","Cat-man Islands":"Cat",
+  "Scott-land":"Scott","Trinidad and Tom-bago":"Tom","Jas-palter":"Jaspar",
+  // D3 – Pokémon
+  "Joelteon":"Joe","Dell-Catty":"Cat","Jaspersion":"Jaspar","Tom-gela":"Tom","Salamance":"Scott",
+  // D4 – Logos
+  "Scottie Pippen":"Scott","Odafe Oweh":"Olivia","Joe Dimaggio":"Joe",
+  "Cal Ripken":"Cat","Cris Collinsworth":"Tom","Jalen Brunson":"Jaspar",
+  // D5 – Scents
+  "Cedar":"Carson","Olfactory":"Olivia","Schnoz":"Scott","Cashmere":"Cat",
+  "Jasmine":"Joe","Tonka Bean":"Tom",
+  // D6 – Sounding Words
+  "Catalyst":"Carson","Tenacity":"Tom","Jazzy":"Jaspar","Jabberwocky":"Joe",
+  "Selacious":"Scott","Origami":"Olivia",
+  // D7 – Money Spends
+  "Venm-Op":"Olivia","Eur-Joe":"Joe","Crypto":"Carson","Sol":"Scott",
+  "Cash Cat":"Cat","Trinidad and Tom-bago Dollar":"Tom","T-Money":"Talal",
+  // D8 – Superheroes
+  "Omni-Man":"Olivia","Jack Jack":"Jaspar","Captain America":"Carson",
+  "Jean Grey":"Joe","Tony Stark":"Tom","Spiderman":"Scott","Cat Woman":"Cat",
+  // D9 – Best Football
+  "Toasty Talal":"Talal","Juicy Jaspar":"Jaspar","Crispy Carson":"Carson",
+  "Jumbo Joe":"Joe","Saucy Scott":"Scott","Cheez-Cat":"Cat","Organic OP":"Olivia",
+  // D10 – 2010s Bangers
+  "Joe-stin Bieber":"Joe","Sean Paul":"Scott","Jeremih":"Olivia",
+  "Chris Brown":"Tom","H.E.R":"Cat","T-Pain":"Talal","Jack Johnson":"Jaspar",
+
+  // ── Team name groupings ──
   "Joe's team":"Joe","Joe's Team":"Joe","Tom's team":"Tom","Tom's Team":"Tom",
   "Cat's team":"Cat","Cat's Team":"Cat","Scott's team":"Scott","Scott's Team":"Scott",
   "Olivia's team":"Olivia","Olivia's Team":"Olivia","Talal's team":"Talal","Talal's Team":"Talal",
-  "Jaspar's team":"Jaspar","Jaspar's Team":"Jaspar",
-  // Direct names pass through
-  "Joe":"Joe","Olivia":"Olivia","Talal":"Talal","Cat":"Cat","Scott":"Scott","Tom":"Tom","Jaspar":"Jaspar",
-  "Carson":"Carson","Kyle":"Kyle","Emma":"Emma","Mike":"Mike","Austi":"Austi",
+  "Jaspar's team":"Jaspar","Jaspar's Team":"Jaspar","Carson's team":"Carson","Carson's Team":"Carson",
+  // OP aliases for team names
+  "OP's team":"Olivia","OP's Team":"Olivia",
+
+  // ── Real names pass through ──
+  "Joe":"Joe","Olivia":"Olivia","Talal":"Talal","Cat":"Cat","Scott":"Scott",
+  "Tom":"Tom","Jaspar":"Jaspar","Carson":"Carson","Kyle":"Kyle","Emma":"Emma",
+  "Mike":"Mike","Austi":"Austi",
 };
 
 const DRAFT_TAGS = ["Food & Drink","Music","TV & Film","Pop Culture","Lifestyle","Work & Office","Sports","Animals","Abstract","Other"];
@@ -513,10 +545,11 @@ export default function App() {
   );
 
   const navItems = [
-    { id:"home", label:"Home", icon:"🏠" },
-    { id:"leaderboard", label:"Standings", icon:"🏆" },
-    { id:"history", label:"History", icon:"📜" },
-    { id:"analysis", label:"Analysis", icon:"📊" },
+    { id:"home", label:"Home" },
+    { id:"leaderboard", label:"Standings" },
+    { id:"history", label:"History" },
+    { id:"analysis", label:"Analysis" },
+    { id:"admin", label:"Admin" },
   ];
   const showNav = !["setup","wheel","draft","vote"].includes(view);
 
@@ -533,9 +566,8 @@ export default function App() {
         <div style={{ position:"fixed", top:12, left:"50%", transform:"translateX(-50%)", zIndex:1000, background:P.navy, borderRadius:40, padding:"6px 8px", display:"flex", gap:4, boxShadow:"0 4px 20px rgba(29,49,105,0.4)", border:"1px solid rgba(255,255,255,0.1)" }}>
           {navItems.map(item => (
             <button key={item.id} onClick={()=>setView(item.id)}
-              style={{ background: view===item.id ? "#fff" : "transparent", border:"none", borderRadius:30, padding:"7px 16px", cursor:"pointer", color: view===item.id ? P.navy : "rgba(255,255,255,0.7)", fontSize:13, fontWeight:700, fontFamily:"inherit", display:"flex", alignItems:"center", gap:6, transition:"all 0.2s", whiteSpace:"nowrap" }}>
-              <span>{item.icon}</span>
-              <span>{item.label}</span>
+              style={{ background: view===item.id ? "#fff" : "transparent", border:"none", borderRadius:30, padding:"7px 16px", cursor:"pointer", color: view===item.id ? P.navy : "rgba(255,255,255,0.7)", fontSize:13, fontWeight:700, fontFamily:"inherit", transition:"all 0.2s", whiteSpace:"nowrap" }}>
+              {item.label}
             </button>
           ))}
         </div>
@@ -546,10 +578,11 @@ export default function App() {
       {view==="wheel"       && <WheelView drafters={setupData.drafters||[]} drafterDetails={setupData.drafterDetails||{}} onCreate={createDraft} creating={creating} onBack={()=>setView("setup")} />}
       {view==="draft"       && activeDraft && <DraftView draft={activeDraft} state={draftState} onPick={submitPick} onBack={()=>setView("home")} />}
       {view==="vote"        && activeDraft && <VoteView draft={activeDraft} voteState={voteState} setVoteState={setVoteState} onSubmit={submitVote} onFinalize={finalizeDraft} onBack={()=>setView("home")} isAdmin={adminDraftIds.has(activeDraft.id)} onRefreshDraft={d=>{setActiveDraft(d);setDrafts(prev=>prev.map(x=>x.id===d.id?d:x));}} />}
-      {view==="results"     && activeDraft && <ResultsView draft={activeDraft} onNewDraft={startSetup} onLeaderboard={()=>setView("leaderboard")} onBack={()=>setView("home")} />}
+      {view==="results"     && activeDraft && <ResultsView draft={activeDraft} onNewDraft={startSetup} onLeaderboard={()=>setView("leaderboard")} onBack={()=>setView("home")} isAdmin={adminDraftIds.has(activeDraft.id)} onSaveDraft={async(updated)=>{ await saveDraft(updated); setActiveDraft(updated); setDrafts(prev=>prev.map(d=>d.id===updated.id?updated:d)); }} />}
       {view==="leaderboard" && <LeaderboardView drafts={drafts} onBack={()=>setView("home")} />}
       {view==="history"     && <HistoryView drafts={drafts} onView={d=>{setActiveDraft(d);setView("results");}} onVote={loadDraftForVoting} onDelete={deleteDraft} onBack={()=>setView("home")} />}
       {view==="analysis"    && <AnalysisView drafts={drafts} onBack={()=>setView("home")} />}
+      {view==="admin"       && <AdminView drafts={drafts} onSaveDraft={async (updated) => { await saveDraft(updated); setDrafts(prev=>prev.map(d=>d.id===updated.id?updated:d)); }} onDeleteDraft={deleteDraft} onBack={()=>setView("home")} />}
     </div>
   );
 }
@@ -568,13 +601,11 @@ function HomeView({ drafts, onNew, onLeaderboard, onHistory, onVote, onResults }
       </div>
       <div style={styles.grid2}>
         <button style={styles.navCard} onClick={onLeaderboard}>
-          <span style={styles.navIcon}>🏆</span>
-          <span style={styles.navLabel}>Leaderboard</span>
+          <span style={styles.navLabel}>Standings</span>
           <span style={styles.navSub}>Season standings</span>
         </button>
         <button style={styles.navCard} onClick={onHistory}>
-          <span style={styles.navIcon}>📜</span>
-          <span style={styles.navLabel}>Draft History</span>
+          <span style={styles.navLabel}>History</span>
           <span style={styles.navSub}>All past drafts</span>
         </button>
       </div>
@@ -1109,9 +1140,9 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
                       <div style={styles.voteDrafter}>{d}</div>
                       <div style={{ marginTop:4 }}>
                         {(draft.picks[d]||[]).map((p,pi) => (
-                          <div key={pi} style={{ display:"flex", gap:6, fontSize:12, color:"#555", padding:"2px 0", borderBottom:"1px solid #f8f8f8" }}>
-                            <span style={{ color:"#ccc", minWidth:16, fontWeight:700 }}>{pi+1}</span>
-                            <span>{p}</span>
+                          <div key={pi} style={{ display:"flex", gap:6, fontSize:12, color:"#555", padding:"2px 0", borderBottom:"1px solid #f8f8f8", textAlign:"left" }}>
+                            <span style={{ color:"#ccc", minWidth:16, fontWeight:700, flexShrink:0 }}>{pi+1}</span>
+                            <span style={{ textAlign:"left", lineHeight:1.4 }}>{p}</span>
                           </div>
                         ))}
                       </div>
@@ -1208,9 +1239,12 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
 }
 
 // ─── RESULTS ──────────────────────────────────────────────────────────────────
-function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
+function ResultsView({ draft, onNewDraft, onLeaderboard, onBack, onSaveDraft, isAdmin }) {
   const sorted = Object.entries(draft.totals||{}).sort((a,b)=>b[1]-a[1]);
   const pts = draft.seasonPoints || computeSeasonPoints(draft.totals||{});
+  const [editingPicks, setEditingPicks] = useState(false);
+  const [draftPicks, setDraftPicks] = useState(() => JSON.parse(JSON.stringify(draft.picks||{})));
+  const [savingPicks, setSavingPicks] = useState(false);
 
   return (
     <div style={styles.page}>
@@ -1233,7 +1267,7 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
             return (
               <div key={entry[0]} style={{ ...styles.podiumCol, height:heights[pos], background:dc, justifyContent:"center", gap:4 }}>
                 <div style={{ ...styles.podiumRank, fontSize:32 }}>{rank}</div>
-                <div style={{ ...styles.podiumName, fontSize:12, wordBreak:"break-word" }}>{entry[0]}</div>
+                <div style={{ ...styles.podiumName, fontSize:12, wordBreak:"break-word" }}>{resolveToRealName(entry[0], draft.drafterDetails)}</div>
                 <div style={{ ...styles.podiumScore, fontSize:11 }}>{entry[1]} pts</div>
               </div>
             );
@@ -1254,7 +1288,7 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
                 {rank}{getRankSuffix(rank)}
               </span>
               <div style={{ width:12, height:12, borderRadius:"50%", background:dc, flexShrink:0 }} />
-              <span style={{ flex:1, fontWeight:700, color:P.navy }}>{drafter}</span>
+              <span style={{ flex:1, fontWeight:700, color:P.navy }}>{resolveToRealName(drafter, draft.drafterDetails)}</span>
               <span style={{ color:"#888", fontSize:12 }}>{total} pts</span>
               <span style={{ fontWeight:800, color:dc, fontSize:12 }}>+{pts[drafter]} season</span>
             </div>
@@ -1264,38 +1298,93 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
 
       {/* Round-by-round draft table */}
       <div style={styles.card}>
-        <div style={styles.label}>Draft Board — Round by Round</div>
-        <div style={{ overflowX:"auto" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-            <thead>
-              <tr>
-                <th style={{ ...styles.th, minWidth:60 }}>Round</th>
-                {draft.drafters.map((d,i) => {
-                  const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
-                  return <th key={d} style={{ ...styles.th, color:dc, minWidth:100, textAlign:"center" }}>{d}</th>;
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from({ length: draft.numPicks }, (_, round) => (
-                <tr key={round} style={{ background: round%2===0 ? P.white : "#fafaf8" }}>
-                  <td style={{ ...styles.td, fontWeight:700, color:P.navy, fontSize:11, textAlign:"center" }}>
-                    R{round+1}
-                  </td>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+          <div style={styles.label}>Draft Board — Round by Round</div>
+          {isAdmin && !editingPicks && (
+            <button style={{ ...styles.btnSmall, fontSize:11, padding:"5px 12px" }} onClick={()=>setEditingPicks(true)}>✏️ Edit Picks</button>
+          )}
+          {isAdmin && editingPicks && (
+            <div style={{ display:"flex", gap:8 }}>
+              <button style={{ ...styles.btnSmall, fontSize:11, padding:"5px 12px", borderColor:P.red, color:P.red }} onClick={()=>{ setDraftPicks(JSON.parse(JSON.stringify(draft.picks||{}))); setEditingPicks(false); }}>Cancel</button>
+              <button style={{ ...styles.btnPrimary, fontSize:11, padding:"5px 14px", opacity:savingPicks?0.6:1 }} disabled={savingPicks} onClick={async()=>{
+                setSavingPicks(true);
+                await onSaveDraft({ ...draft, picks: draftPicks });
+                setSavingPicks(false);
+                setEditingPicks(false);
+              }}>{savingPicks?"Saving…":"Save Picks"}</button>
+            </div>
+          )}
+        </div>
+        {editingPicks ? (
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...styles.th, minWidth:60 }}>Round</th>
                   {draft.drafters.map((d,i) => {
                     const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
-                    const pick = (draft.picks[d]||[])[round];
-                    return (
-                      <td key={d} style={{ ...styles.td, borderLeft:`2px solid ${dc}40`, paddingLeft:8, color: pick ? dc : "#ddd", fontWeight: pick ? 700 : 400 }}>
-                        {pick || "—"}
-                      </td>
-                    );
+                    return <th key={d} style={{ ...styles.th, color:dc, minWidth:120, textAlign:"center" }}>{resolveToRealName(d, draft.drafterDetails)}</th>;
                   })}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {Array.from({ length: draft.numPicks }, (_, round) => (
+                  <tr key={round} style={{ background: round%2===0 ? P.white : "#fafaf8" }}>
+                    <td style={{ ...styles.td, fontWeight:700, color:P.navy, fontSize:11, textAlign:"center" }}>R{round+1}</td>
+                    {draft.drafters.map((d,i) => {
+                      const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
+                      const val = (draftPicks[d]||[])[round] || "";
+                      return (
+                        <td key={d} style={{ ...styles.td, borderLeft:`2px solid ${dc}40`, padding:"4px 6px" }}>
+                          <input
+                            style={{ width:"100%", border:`1px solid ${dc}88`, borderRadius:5, padding:"4px 7px", fontSize:12, color:P.navy, fontWeight:600, background:"#fafaf8", outline:"none", fontFamily:"inherit", boxSizing:"border-box" }}
+                            value={val}
+                            onChange={e => {
+                              const arr = [...(draftPicks[d]||Array(draft.numPicks).fill(""))];
+                              arr[round] = e.target.value;
+                              setDraftPicks(prev => ({ ...prev, [d]: arr }));
+                            }}
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ fontSize:11, color:"#aaa", marginTop:8, textAlign:"center" }}>Edit any pick inline, then click Save Picks</div>
+          </div>
+        ) : (
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...styles.th, minWidth:60 }}>Round</th>
+                  {draft.drafters.map((d,i) => {
+                    const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
+                    return <th key={d} style={{ ...styles.th, color:dc, minWidth:100, textAlign:"center" }}>{resolveToRealName(d, draft.drafterDetails)}</th>;
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: draft.numPicks }, (_, round) => (
+                  <tr key={round} style={{ background: round%2===0 ? P.white : "#fafaf8" }}>
+                    <td style={{ ...styles.td, fontWeight:700, color:P.navy, fontSize:11, textAlign:"center" }}>R{round+1}</td>
+                    {draft.drafters.map((d,i) => {
+                      const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
+                      const pick = (draft.picks[d]||[])[round];
+                      return (
+                        <td key={d} style={{ ...styles.td, borderLeft:`2px solid ${dc}40`, paddingLeft:8, color: pick ? dc : "#ddd", fontWeight: pick ? 700 : 400 }}>
+                          {pick || "—"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {Object.keys(draft.votes||{}).length > 0 && (
@@ -1306,13 +1395,13 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
               <thead>
                 <tr>
                   <th style={styles.th}>Voter</th>
-                  {draft.drafters.map(d => <th key={d} style={{ ...styles.th, textAlign:"center" }}>{d}</th>)}
+                  {draft.drafters.map(d => <th key={d} style={{ ...styles.th, textAlign:"center" }}>{resolveToRealName(d, draft.drafterDetails)}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(draft.votes).map(([voter, votes]) => (
                   <tr key={voter}>
-                    <td style={styles.td}>{voter}</td>
+                    <td style={styles.td}>{resolveToRealName(voter, draft.drafterDetails)}</td>
                     {draft.drafters.map(d => <td key={d} style={{ ...styles.td, textAlign:"center", color:votes[d]===1?P.amber:"inherit" }}>{votes[d] ?? "—"}</td>)}
                   </tr>
                 ))}
@@ -1336,7 +1425,9 @@ function ResultsView({ draft, onNewDraft, onLeaderboard, onBack }) {
 
 // ─── LEADERBOARD ──────────────────────────────────────────────────────────────
 function LeaderboardView({ drafts, onBack }) {
-  const [season, setSeason] = useState(1);
+  // Build list of seasons that have at least one voted draft (plus season 1 which uses seed data)
+  const availSeasons = [...new Set([1, ...drafts.filter(d => d.status === "voted").map(d => +d.season)])].sort((a,b)=>a-b);
+  const [season, setSeason] = useState(availSeasons[availSeasons.length - 1] ?? 1);
   const [tab, setTab] = useState("standings");
 
   // For season 2+, build scores dynamically from completed drafts
@@ -1346,10 +1437,8 @@ function LeaderboardView({ drafts, onBack }) {
       const pts = d.seasonPoints || {};
       const scores = {};
       Object.entries(pts).forEach(([nickname, p]) => {
-        // First try drafterDetails from this draft, then global ALIAS_MAP
-        const realName = d.drafterDetails?.[nickname]?.realName
-          || resolveName(nickname)
-          || nickname;
+        // Use resolveToRealName so drafterDetails realName overrides ALIAS_MAP
+        const realName = resolveToRealName(nickname, d.drafterDetails);
         // Accumulate in case two nicknames map to same real name
         scores[realName] = (scores[realName] || 0) + p;
       });
@@ -1361,10 +1450,10 @@ function LeaderboardView({ drafts, onBack }) {
 
   const wins = {};
   drafts.filter(d => d.season===season && d.status==="voted" && d.winner).forEach(d => {
-    // Handle ties like "Cat & Scott"
+    // Handle ties like "Cat & Scott" — use resolveToRealName so drafterDetails overrides too
     const names = d.winner.split(/\s*&\s*/);
     names.forEach(name => {
-      const realName = resolveName(name.trim());
+      const realName = resolveToRealName(name.trim(), d.drafterDetails);
       wins[realName] = (wins[realName]||0) + 1;
     });
   });
@@ -1377,7 +1466,7 @@ function LeaderboardView({ drafts, onBack }) {
 
       {/* Season selector */}
       <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-        {[1,2].map(s => (
+        {availSeasons.map(s => (
           <button key={s}
             style={{ ...styles.btnSmall, background:season===s?P.navy:P.white, color:season===s?P.white:P.navy }}
             onClick={()=>setSeason(s)}>
@@ -1483,7 +1572,7 @@ function LeaderboardView({ drafts, onBack }) {
             {drafts.filter(d=>d.season===season&&d.status==="voted").map(d => (
               <div key={d.id} style={{ ...styles.resultRow, marginBottom:8 }}>
                 <span style={{ flex:1, fontSize:13, color:"#555" }}>W{d.week}: {d.category}</span>
-                <span style={{ fontWeight:700, color:P.navy, fontSize:13 }}>🏆 {resolveName(d.winner)}</span>
+                <span style={{ fontWeight:700, color:P.navy, fontSize:13 }}>🏆 {d.winner ? d.winner.split(/\s*&\s*/).map(n=>resolveToRealName(n.trim(),d.drafterDetails)).join(" & ") : "—"}</span>
               </div>
             ))}
           </div>
@@ -1538,7 +1627,7 @@ function HistoryView({ drafts, onView, onVote, onDelete, onBack }) {
                 <div style={styles.draftName}>{d.category}</div>
                 <div style={styles.draftMeta}>
                   S{d.season} W{d.week} · {d.drafters.length} drafters ·{" "}
-                  {d.status==="voted"&&winner?`Winner: ${resolveName(winner[0])}`:d.status}
+                  {d.status==="voted"&&winner?`Winner: ${resolveToRealName(winner[0], d.drafterDetails)}`:d.status}
                 </div>
               </div>
               <div style={{ display:"flex", gap:8, flexShrink:0 }}>
@@ -1618,8 +1707,8 @@ const styles = {
   boardGrid: { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px,1fr))", gap:12 },
   boardCard: { background:P.white, borderRadius:10, padding:"14px", borderTop:"3px solid", border:`1px solid ${P.warmGrey}`, boxShadow:"0 1px 3px rgba(0,0,0,0.04)" },
   boardName: { fontWeight:800, fontSize:13, marginBottom:8, letterSpacing:1, textTransform:"uppercase" },
-  pickItem: { display:"flex", alignItems:"baseline", gap:6, fontSize:13, color:"#444", padding:"3px 0", borderBottom:"1px solid #f0ede9" },
-  pickNum: { fontSize:11, color:"#bbb", minWidth:16, fontWeight:700 },
+  pickItem: { display:"flex", alignItems:"baseline", gap:6, fontSize:13, color:"#444", padding:"3px 0", borderBottom:"1px solid #f0ede9", textAlign:"left" },
+  pickNum: { fontSize:11, color:"#bbb", minWidth:16, fontWeight:700, flexShrink:0 },
   voteRow: { display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:"1px solid #f0ede9" },
   voteColorBar: { width:4, height:40, borderRadius:2, flexShrink:0 },
   voteDrafter: { fontWeight:700, color:P.navy, fontSize:15 },
@@ -1991,6 +2080,347 @@ function AnalysisView({ drafts, onBack }) {
           </div>
         </div>
       </>)}
+    </div>
+  );
+}
+
+// ─── ADMIN ────────────────────────────────────────────────────────────────────
+const ADMIN_PASSWORD = "thursday";
+
+function AdminView({ drafts, onSaveDraft, onDeleteDraft, onBack }) {
+  const [authed, setAuthed] = useState(() => localStorage.getItem("adminAuthed") === "true");
+  const [pwInput, setPwInput] = useState("");
+  const [pwError, setPwError] = useState(false);
+  const [selectedDraft, setSelectedDraft] = useState(null);
+  const [tab, setTab] = useState("meta"); // meta | picks | votes | drafters
+  const [saving, setSaving] = useState(false);
+  const [notification, setNotification] = useState(null);
+  const seasons = [...new Set(drafts.map(d=>+d.season))].sort((a,b)=>a-b);
+  const [filterSeason, setFilterSeason] = useState(seasons[seasons.length-1]??1);
+
+  // Local edit state for the selected draft
+  const [editMeta, setEditMeta] = useState({});
+  const [editPicks, setEditPicks] = useState({});
+  const [editVotes, setEditVotes] = useState({});
+  const [editDrafters, setEditDrafters] = useState([]);
+  const [editDrafterDetails, setEditDrafterDetails] = useState({});
+  const [editWinner, setEditWinner] = useState("");
+
+  function notify(msg, type="success") {
+    setNotification({ msg, type });
+    setTimeout(() => setNotification(null), 2500);
+  }
+
+  function login() {
+    if (pwInput === ADMIN_PASSWORD) {
+      localStorage.setItem("adminAuthed", "true");
+      setAuthed(true);
+      setPwError(false);
+    } else {
+      setPwError(true);
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem("adminAuthed");
+    setAuthed(false);
+    setSelectedDraft(null);
+  }
+
+  function openDraft(d) {
+    setSelectedDraft(d);
+    setTab("meta");
+    setEditMeta({ category: d.category, season: d.season, week: d.week, tag: d.tag||"Other", company: d.company||"", status: d.status, imageUrl: d.imageUrl||"" });
+    setEditPicks(JSON.parse(JSON.stringify(d.picks||{})));
+    setEditVotes(JSON.parse(JSON.stringify(d.votes||{})));
+    setEditDrafters([...(d.drafters||[])]);
+    setEditDrafterDetails(JSON.parse(JSON.stringify(d.drafterDetails||{})));
+    setEditWinner(d.winner||"");
+  }
+
+  async function saveChanges() {
+    if (!selectedDraft) return;
+    setSaving(true);
+    // Recompute totals from editVotes
+    const newTotals = computeTotalsFromVotes(editVotes, editDrafters);
+    const updated = {
+      ...selectedDraft,
+      ...editMeta,
+      season: +editMeta.season,
+      week: +editMeta.week,
+      picks: editPicks,
+      votes: editVotes,
+      totals: newTotals,
+      drafters: editDrafters,
+      drafterDetails: editDrafterDetails,
+      winner: editWinner || selectedDraft.winner,
+    };
+    // Recompute seasonPoints if voted
+    if (updated.status === "voted") {
+      updated.seasonPoints = computeSeasonPoints(newTotals);
+    }
+    await onSaveDraft(updated);
+    setSelectedDraft(updated);
+    setSaving(false);
+    notify("Saved!");
+  }
+
+  if (!authed) {
+    return (
+      <div style={styles.page}>
+        <button style={styles.backBtn} onClick={onBack}>← Back</button>
+        <h1 style={styles.pageTitle}>Admin</h1>
+        <div style={{ maxWidth:340, margin:"60px auto 0" }}>
+          <div style={{ ...styles.card, textAlign:"center" }}>
+            <div style={{ fontSize:36, marginBottom:12 }}>🔒</div>
+            <div style={{ fontWeight:700, fontSize:18, color:P.navy, marginBottom:20 }}>Admin Access</div>
+            <input
+              style={{ ...styles.input, textAlign:"center", letterSpacing:4, fontSize:18 }}
+              type="password"
+              placeholder="Password"
+              value={pwInput}
+              onChange={e=>{ setPwInput(e.target.value); setPwError(false); }}
+              onKeyDown={e=>e.key==="Enter"&&login()}
+              autoFocus
+            />
+            {pwError && <div style={{ color:P.red, fontSize:13, marginBottom:12, marginTop:-8 }}>Wrong password</div>}
+            <button style={{ ...styles.btnPrimary, width:"100%" }} onClick={login}>Unlock</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.page}>
+      {notification && (
+        <div style={{ ...styles.notification, background: notification.type==="error"?P.red:P.lime, position:"fixed", top:16, left:"50%", transform:"translateX(-50%)", zIndex:9999 }}>
+          {notification.msg}
+        </div>
+      )}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
+        <button style={styles.backBtn} onClick={()=>{ if(selectedDraft){setSelectedDraft(null);}else{onBack();} }}>← {selectedDraft?"Drafts":"Back"}</button>
+        <button style={{ ...styles.btnSmall, fontSize:11, padding:"5px 12px", color:"#888", borderColor:"#ddd" }} onClick={logout}>Log out</button>
+      </div>
+      <h1 style={styles.pageTitle}>Admin {selectedDraft ? `· ${selectedDraft.category}` : ""}</h1>
+
+      {!selectedDraft ? (
+        <>
+          {/* Draft season filter */}
+          <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
+            {seasons.map(s=>(
+              <button key={s} style={{ ...styles.btnSmall, background:filterSeason===s?P.navy:P.white, color:filterSeason===s?P.white:P.navy }} onClick={()=>setFilterSeason(s)}>S{s}</button>
+            ))}
+          </div>
+          {drafts.filter(d=>+d.season===+filterSeason).map((d,i)=>(
+            <div key={d.id} style={{ ...styles.draftCard, flexDirection:"column", gap:0 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12, width:"100%" }}>
+                <div style={{ ...styles.draftColorBar, background:COLORS[i%COLORS.length] }} />
+                <div style={{ flex:1 }}>
+                  <div style={styles.draftName}>{d.category}</div>
+                  <div style={styles.draftMeta}>S{d.season} W{d.week} · {d.status} · {d.drafters?.length||0} drafters</div>
+                </div>
+                <div style={{ display:"flex", gap:8 }}>
+                  <button style={styles.btnSmall} onClick={()=>openDraft(d)}>Edit</button>
+                  <button style={{ ...styles.btnSmall, borderColor:P.red, color:P.red }} onClick={()=>onDeleteDraft(d.id)}>Delete</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </>
+      ) : (
+        <>
+          {/* Tab bar */}
+          <div style={{ display:"flex", marginBottom:20, border:`1px solid ${P.warmGrey}`, borderRadius:8, overflow:"hidden" }}>
+            {[["meta","Details"],["drafters","Drafters"],["picks","Picks"],["votes","Votes"]].map(([key,label])=>(
+              <button key={key}
+                style={{ flex:1, padding:"10px 0", border:"none", background:tab===key?P.navy:P.white, color:tab===key?P.white:P.navy, fontWeight:700, fontSize:12, cursor:"pointer", fontFamily:"inherit" }}
+                onClick={()=>setTab(key)}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── DETAILS TAB ── */}
+          {tab==="meta" && (
+            <div style={styles.card}>
+              <label style={styles.label}>Category</label>
+              <input style={styles.input} value={editMeta.category||""} onChange={e=>setEditMeta(m=>({...m,category:e.target.value}))} />
+              <div style={styles.row}>
+                <div style={{flex:1}}>
+                  <label style={styles.label}>Season</label>
+                  <input style={styles.input} type="number" min="1" value={editMeta.season||1} onChange={e=>setEditMeta(m=>({...m,season:e.target.value}))} />
+                </div>
+                <div style={{flex:1}}>
+                  <label style={styles.label}>Week</label>
+                  <input style={styles.input} type="number" min="1" value={editMeta.week||1} onChange={e=>setEditMeta(m=>({...m,week:e.target.value}))} />
+                </div>
+              </div>
+              <label style={styles.label}>Tag</label>
+              <select style={{ ...styles.input, marginBottom:14 }} value={editMeta.tag||"Other"} onChange={e=>setEditMeta(m=>({...m,tag:e.target.value}))}>
+                {DRAFT_TAGS.map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+              <label style={styles.label}>Company</label>
+              <input style={styles.input} placeholder="e.g. Attain" value={editMeta.company||""} onChange={e=>setEditMeta(m=>({...m,company:e.target.value}))} />
+              <label style={styles.label}>Status</label>
+              <select style={{ ...styles.input, marginBottom:14 }} value={editMeta.status||"voted"} onChange={e=>setEditMeta(m=>({...m,status:e.target.value}))}>
+                {["drafting","voting","voted"].map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+              <label style={styles.label}>Winner (override)</label>
+              <input style={styles.input} placeholder="e.g. Scott or Cat & Scott" value={editWinner} onChange={e=>setEditWinner(e.target.value)} />
+              <label style={styles.label}>Image URL</label>
+              <input style={styles.input} placeholder="https://…" value={editMeta.imageUrl||""} onChange={e=>setEditMeta(m=>({...m,imageUrl:e.target.value}))} />
+            </div>
+          )}
+
+          {/* ── DRAFTERS TAB ── */}
+          {tab==="drafters" && (
+            <div style={styles.card}>
+              <div style={styles.label}>Drafter Details (nickname → real name, color)</div>
+              {editDrafters.map((nickname, i) => {
+                const det = editDrafterDetails[nickname] || {};
+                const dc = det.color || COLORS[i%COLORS.length];
+                return (
+                  <div key={nickname} style={{ padding:"10px 0", borderBottom:"1px solid #f0ede9" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
+                      <div style={{ width:14, height:14, borderRadius:"50%", background:dc, flexShrink:0 }} />
+                      <span style={{ fontWeight:700, color:P.navy, flex:1 }}>{nickname}</span>
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:8, alignItems:"center" }}>
+                      <div>
+                        <label style={{ ...styles.label, fontSize:10, marginBottom:3 }}>Real Name</label>
+                        <input style={{ ...styles.input, marginBottom:0, fontSize:13 }}
+                          value={det.realName||""}
+                          onChange={e=>setEditDrafterDetails(prev=>({ ...prev, [nickname]:{ ...prev[nickname], realName:e.target.value } }))} />
+                      </div>
+                      <div>
+                        <label style={{ ...styles.label, fontSize:10, marginBottom:3 }}>Color</label>
+                        <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                          <input type="color" value={det.color||COLORS[i%COLORS.length]}
+                            onChange={e=>setEditDrafterDetails(prev=>({ ...prev, [nickname]:{ ...prev[nickname], color:e.target.value } }))}
+                            style={{ width:36, height:32, border:"none", borderRadius:6, cursor:"pointer", padding:2 }} />
+                          <input style={{ ...styles.input, marginBottom:0, fontSize:12, width:80, fontFamily:"monospace" }}
+                            value={det.color||COLORS[i%COLORS.length]}
+                            onChange={e=>setEditDrafterDetails(prev=>({ ...prev, [nickname]:{ ...prev[nickname], color:e.target.value } }))} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── PICKS TAB ── */}
+          {tab==="picks" && (
+            <div style={styles.card}>
+              <div style={styles.label}>Edit Picks (by round)</div>
+              <div style={{ overflowX:"auto" }}>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...styles.th, minWidth:50 }}>Rd</th>
+                      {editDrafters.map((d,i)=>{
+                        const dc = editDrafterDetails[d]?.color||COLORS[i%COLORS.length];
+                        return <th key={d} style={{ ...styles.th, color:dc, minWidth:120, textAlign:"center" }}>{resolveToRealName(d, editDrafterDetails)}</th>;
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: selectedDraft.numPicks }, (_,round)=>(
+                      <tr key={round} style={{ background:round%2===0?P.white:"#fafaf8" }}>
+                        <td style={{ ...styles.td, fontWeight:700, color:P.navy, fontSize:11, textAlign:"center" }}>R{round+1}</td>
+                        {editDrafters.map((d,i)=>{
+                          const dc = editDrafterDetails[d]?.color||COLORS[i%COLORS.length];
+                          const val = (editPicks[d]||[])[round]||"";
+                          return (
+                            <td key={d} style={{ ...styles.td, borderLeft:`2px solid ${dc}40`, padding:"4px 6px" }}>
+                              <input
+                                style={{ width:"100%", border:`1px solid ${dc}88`, borderRadius:5, padding:"4px 7px", fontSize:12, color:P.navy, fontWeight:600, background:"#fafaf8", outline:"none", fontFamily:"inherit", boxSizing:"border-box" }}
+                                value={val}
+                                onChange={e=>{
+                                  const arr=[...(editPicks[d]||Array(selectedDraft.numPicks).fill(""))];
+                                  arr[round]=e.target.value;
+                                  setEditPicks(prev=>({...prev,[d]:arr}));
+                                }}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── VOTES TAB ── */}
+          {tab==="votes" && (
+            <div style={styles.card}>
+              <div style={styles.label}>Votes (voter → rankings)</div>
+              {Object.keys(editVotes).length === 0 && <div style={{ color:"#aaa", padding:"16px 0", textAlign:"center" }}>No votes yet</div>}
+              {Object.entries(editVotes).map(([voter, rankings])=>(
+                <div key={voter} style={{ marginBottom:16, paddingBottom:16, borderBottom:`1px solid ${P.warmGrey}` }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                    <span style={{ fontWeight:700, color:P.navy }}>{voter}</span>
+                    <button style={{ ...styles.btnSmall, fontSize:11, padding:"3px 10px", borderColor:P.red, color:P.red }}
+                      onClick={()=>setEditVotes(prev=>{ const n={...prev}; delete n[voter]; return n; })}>
+                      Remove vote
+                    </button>
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))", gap:6 }}>
+                    {editDrafters.map(d=>(
+                      <div key={d} style={{ display:"flex", alignItems:"center", gap:6 }}>
+                        <span style={{ fontSize:12, color:"#888", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{resolveToRealName(d, editDrafterDetails)}</span>
+                        <input
+                          type="number" min="1" max={editDrafters.length}
+                          style={{ width:48, border:`1px solid ${P.warmGrey}`, borderRadius:5, padding:"3px 6px", fontSize:13, textAlign:"center", fontFamily:"inherit" }}
+                          value={rankings[d]??""}
+                          onChange={e=>setEditVotes(prev=>({ ...prev, [voter]:{ ...prev[voter], [d]:e.target.value===''?undefined:+e.target.value } }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {/* Add new voter row */}
+              <AddVoterRow drafters={editDrafters} drafterDetails={editDrafterDetails} onAdd={(voter,rankings)=>setEditVotes(prev=>({...prev,[voter]:rankings}))} />
+            </div>
+          )}
+
+          <button style={{ ...styles.btnPrimary, width:"100%", marginTop:16, opacity:saving?0.6:1 }} disabled={saving} onClick={saveChanges}>
+            {saving ? "Saving…" : "Save All Changes"}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function AddVoterRow({ drafters, drafterDetails, onAdd }) {
+  const [voterName, setVoterName] = useState("");
+  const [rankings, setRankings] = useState({});
+  function submit() {
+    if (!voterName.trim()) return;
+    onAdd(voterName.trim(), rankings);
+    setVoterName(""); setRankings({});
+  }
+  return (
+    <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${P.warmGrey}` }}>
+      <div style={{ fontWeight:700, fontSize:12, color:P.navy, marginBottom:8 }}>+ Add Vote</div>
+      <input style={{ ...styles.input, marginBottom:10 }} placeholder="Voter name" value={voterName} onChange={e=>setVoterName(e.target.value)} />
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))", gap:6, marginBottom:10 }}>
+        {drafters.map(d=>(
+          <div key={d} style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <span style={{ fontSize:12, color:"#888", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{resolveToRealName(d, drafterDetails)}</span>
+            <input type="number" min="1" max={drafters.length}
+              style={{ width:48, border:`1px solid ${P.warmGrey}`, borderRadius:5, padding:"3px 6px", fontSize:13, textAlign:"center", fontFamily:"inherit" }}
+              value={rankings[d]||""} onChange={e=>setRankings(prev=>({...prev,[d]:e.target.value===''?undefined:+e.target.value}))} />
+          </div>
+        ))}
+      </div>
+      <button style={{ ...styles.btnSmall, width:"100%" }} onClick={submit}>Add Vote</button>
     </div>
   );
 }
