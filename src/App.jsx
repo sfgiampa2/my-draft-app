@@ -340,6 +340,7 @@ function buildShareLink(draftId) {
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [view, setView] = useState("home");
+  const [prevView, setPrevView] = useState("home");
   const [drafts, setDrafts] = useState([]);
   const [activeDraft, setActiveDraft] = useState(null);
   const [setupData, setSetupData] = useState({ category:"", season:2, week:1, drafters:[], drafterDetails:{}, numPicks:5, imageFile:null, imageUrl:null });
@@ -577,10 +578,10 @@ export default function App() {
       {view==="setup"       && <SetupView data={setupData} setData={setSetupData} onNext={()=>setView("wheel")} onBack={()=>setView("home")} />}
       {view==="wheel"       && <WheelView drafters={setupData.drafters||[]} drafterDetails={setupData.drafterDetails||{}} onCreate={createDraft} creating={creating} onBack={()=>setView("setup")} />}
       {view==="draft"       && activeDraft && <DraftView draft={activeDraft} state={draftState} onPick={submitPick} onBack={()=>setView("home")} />}
-      {view==="vote"        && activeDraft && <VoteView draft={activeDraft} voteState={voteState} setVoteState={setVoteState} onSubmit={submitVote} onFinalize={finalizeDraft} onBack={()=>setView("home")} isAdmin={adminDraftIds.has(activeDraft.id)} onRefreshDraft={d=>{setActiveDraft(d);setDrafts(prev=>prev.map(x=>x.id===d.id?d:x));}} />}
-      {view==="results"     && activeDraft && <ResultsView draft={activeDraft} onNewDraft={startSetup} onLeaderboard={()=>setView("leaderboard")} onBack={()=>setView("home")} isAdmin={adminDraftIds.has(activeDraft.id)} onSaveDraft={async(updated)=>{ await saveDraft(updated); setActiveDraft(updated); setDrafts(prev=>prev.map(d=>d.id===updated.id?updated:d)); }} />}
+      {view==="vote"        && activeDraft && <VoteView draft={activeDraft} voteState={voteState} setVoteState={setVoteState} onSubmit={submitVote} onFinalize={finalizeDraft} onBack={()=>setView("home")} isAdmin={adminDraftIds.has(activeDraft.id)} onRefreshDraft={d=>{setActiveDraft(d);setDrafts(prev=>prev.map(x=>x.id===d.id?d:x));}} onSaveDraft={async(updated)=>{ await saveDraft(updated); setActiveDraft(updated); setDrafts(prev=>prev.map(d=>d.id===updated.id?updated:d)); }} />}
+      {view==="results"     && activeDraft && <ResultsView draft={activeDraft} onNewDraft={startSetup} onLeaderboard={()=>setView("leaderboard")} onBack={()=>{ setView(prevView); setPrevView("home"); }} isAdmin={adminDraftIds.has(activeDraft.id)} onSaveDraft={async(updated)=>{ await saveDraft(updated); setActiveDraft(updated); setDrafts(prev=>prev.map(d=>d.id===updated.id?updated:d)); }} />}
       {view==="leaderboard" && <LeaderboardView drafts={drafts} onBack={()=>setView("home")} />}
-      {view==="history"     && <HistoryView drafts={drafts} onView={d=>{setActiveDraft(d);setView("results");}} onVote={loadDraftForVoting} onDelete={deleteDraft} onBack={()=>setView("home")} />}
+      {view==="history"     && <HistoryView drafts={drafts} onView={d=>{setActiveDraft(d);setPrevView("history");setView("results");}} onVote={loadDraftForVoting} onDelete={deleteDraft} onBack={()=>setView("home")} />}
       {view==="analysis"    && <AnalysisView drafts={drafts} onBack={()=>setView("home")} />}
       {view==="admin"       && <AdminView drafts={drafts} onSaveDraft={async (updated) => { await saveDraft(updated); setDrafts(prev=>prev.map(d=>d.id===updated.id?updated:d)); }} onDeleteDraft={deleteDraft} onBack={()=>setView("home")} />}
     </div>
@@ -595,7 +596,7 @@ function HomeView({ drafts, onNew, onLeaderboard, onHistory, onVote, onResults }
     <div style={styles.page}>
       <div style={{ ...styles.hero, textAlign:"center", alignItems:"center", display:"flex", flexDirection:"column", width:"100%" }}>
         <div style={styles.heroTag}>Draft Simulator</div>
-        <h1 style={styles.heroTitle}>Thursday's Best<br/><span style={styles.heroAccent}>Draft Room</span></h1>
+        <h1 style={styles.heroTitle}>Thursday<br/><span style={styles.heroAccent}>Draft Room</span></h1>
         <p style={styles.heroSub}>Build your roster. Defend your picks. Let the votes decide. Brought to you by Friday's Team Check-in.</p>
         <button style={styles.btnPrimary} onClick={onNew}>+ Start New Draft</button>
       </div>
@@ -1012,9 +1013,12 @@ function DraftView({ draft, state, onPick, onBack }) {
 }
 
 // ─── VOTING ───────────────────────────────────────────────────────────────────
-function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack, isAdmin, onRefreshDraft }) {
+function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack, isAdmin, onRefreshDraft, onSaveDraft }) {
   const { voterName, rankings, submitted, voters } = voteState;
   const [copied, setCopied] = useState(false);
+  const [editingPicks, setEditingPicks] = useState(false);
+  const [draftPicks, setDraftPicks] = useState(JSON.parse(JSON.stringify(draft.picks||{})));
+  const [savingPicks, setSavingPicks] = useState(false);
 
   // Real-time: poll votes table every 4 seconds
   useEffect(() => {
@@ -1209,6 +1213,71 @@ function VoteView({ draft, voteState, setVoteState, onSubmit, onFinalize, onBack
           <button style={{ ...styles.btnPrimary, width:"100%" }} onClick={onFinalize}>
             Close Voting & See Results →
           </button>
+
+          {/* ── Edit Picks during voting ── */}
+          <div style={{ marginTop:12, borderTop:`1px solid ${P.navy}30`, paddingTop:12 }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+              <span style={{ fontWeight:700, color:P.navy, fontSize:13 }}>Draft Board</span>
+              {!editingPicks ? (
+                <button style={{ ...styles.btnSmall, fontSize:11, padding:"5px 12px" }} onClick={()=>setEditingPicks(true)}>✏️ Edit Picks</button>
+              ) : (
+                <div style={{ display:"flex", gap:8 }}>
+                  <button style={{ ...styles.btnSmall, fontSize:11, padding:"5px 12px", borderColor:P.red, color:P.red }} onClick={()=>{ setDraftPicks(JSON.parse(JSON.stringify(draft.picks||{}))); setEditingPicks(false); }}>Cancel</button>
+                  <button style={{ ...styles.btnPrimary, fontSize:11, padding:"5px 14px", opacity:savingPicks?0.6:1 }} disabled={savingPicks} onClick={async()=>{
+                    setSavingPicks(true);
+                    await onSaveDraft({ ...draft, picks: draftPicks });
+                    setSavingPicks(false);
+                    setEditingPicks(false);
+                  }}>{savingPicks?"Saving…":"Save Picks"}</button>
+                </div>
+              )}
+            </div>
+            {editingPicks && (
+              <div style={{ overflowX:"auto" }}>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...styles.th, minWidth:50 }}>Rd</th>
+                      {draft.drafters.map((d,i) => {
+                        const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
+                        return <th key={d} style={{ ...styles.th, color:dc, minWidth:110, textAlign:"center" }}>{resolveToRealName(d, draft.drafterDetails)}</th>;
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: draft.numPicks }, (_, round) => (
+                      <tr key={round} style={{ background: round%2===0 ? P.white : "#fafaf8" }}>
+                        <td style={{ ...styles.td, fontWeight:700, color:P.navy, fontSize:11, textAlign:"center" }}>R{round+1}</td>
+                        {draft.drafters.map((d,i) => {
+                          const dc = draft.drafterDetails?.[d]?.color || COLORS[i%COLORS.length];
+                          const val = (draftPicks[d]||[])[round] || "";
+                          return (
+                            <td key={d} style={{ ...styles.td, borderLeft:`2px solid ${dc}40`, padding:"4px 6px" }}>
+                              <input
+                                style={{ width:"100%", border:`1px solid ${dc}88`, borderRadius:5, padding:"4px 7px", fontSize:12, color:P.navy, fontWeight:600, background:"#fafaf8", outline:"none", fontFamily:"inherit", boxSizing:"border-box" }}
+                                value={val}
+                                onChange={e=>{
+                                  const v = e.target.value;
+                                  setDraftPicks(prev=>{
+                                    const n = { ...prev };
+                                    if (!n[d]) n[d] = [];
+                                    const arr = [...(n[d]||[])];
+                                    arr[round] = v;
+                                    n[d] = arr;
+                                    return n;
+                                  });
+                                }}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1638,8 +1707,6 @@ function HistoryView({ drafts, onView, onVote, onDelete, onBack }) {
                   <button style={{ ...styles.btnSmall, fontSize:12, padding:"8px 10px" }}
                     onClick={()=>{ setEditingSeasonFor(d.id); setNewSeasonVal(String(d.season)); }}>✏️</button>
                 )}
-                <button style={{ ...styles.btnSmall, borderColor:P.red, color:P.red, padding:"8px 10px" }}
-                  onClick={()=>onDelete(d.id)}>🗑</button>
               </div>
             </div>
             {isSuperAdmin && editingSeasonFor===d.id && (
