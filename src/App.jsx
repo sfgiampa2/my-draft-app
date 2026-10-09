@@ -1829,27 +1829,53 @@ function AnalysisView({ drafts, onBack }) {
   ).sort((a,b)=>a.season!==b.season?a.season-b.season:a.week-b.week);
 
   const players = {};
-  voted.forEach(draft => {
+  voted.forEach((draft, draftIdx) => {
     const pts = draft.seasonPoints || {};
     const totals = draft.totals || {};
-    const sorted = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
-    const topScore = sorted[0]?.[1];
     const weekKey = `S${draft.season}W${draft.week}`;
+
+    // For Season 1, use SEASON1_SCORES as the authoritative source (Supabase totals are empty)
+    const s1scores = draft.season === 1 ? (SEASON1_SCORES[draft.week - 1]?.scores || {}) : null;
+
+    // Check if totals has any meaningful (non-zero) values
+    const totalsHasData = Object.values(totals).some(v => v > 0);
+
+    // Get season points for a player — for S1 use SEASON1_SCORES, otherwise resolve from draft data
+    function getSeasonPts(nickname, realName) {
+      if (s1scores) return s1scores[realName] ?? 0;
+      return pts[nickname] ?? pts[realName] ??
+        (Object.entries(pts).find(([k]) => resolveToRealName(k, draft.drafterDetails) === realName || resolveName(k) === realName)?.[1] ?? 0);
+    }
+
+    // Build ranking: S1 uses SEASON1_SCORES by real name; otherwise use totals if available, else seasonPoints
+    const rankingEntries = s1scores
+      ? Object.entries(s1scores).sort((a,b)=>b[1]-a[1])
+      : totalsHasData
+        ? Object.entries(totals).sort((a,b)=>b[1]-a[1])
+        : draft.drafters.map(n => {
+            const rn = resolveToRealName(n, draft.drafterDetails);
+            return [n, getSeasonPts(n, rn)];
+          }).sort((a,b)=>b[1]-a[1]);
+
+    const topScore = rankingEntries[0]?.[1];
+
     draft.drafters.forEach(nickname => {
       const realName = resolveToRealName(nickname, draft.drafterDetails);
       if (selDrafters.length>0 && !selDrafters.includes(realName)) return;
       if (!players[realName]) players[realName] = { drafts:0, wins:0, seasonPts:0, best:null, finishes:[], weekPts:{}, weekFinish:{} };
       const p = players[realName];
       p.drafts++;
-      const sp = pts[nickname] ?? pts[realName] ?? 0;
+      const sp = getSeasonPts(nickname, realName);
       p.seasonPts += sp;
       p.weekPts[weekKey] = (p.weekPts[weekKey]||0)+sp;
-      const voteTotal = totals[nickname]||0;
-      const finish = sorted.findIndex(([n])=>n===nickname)+1;
+      // For S1: match by real name in ranking; otherwise match by nickname
+      const finish = s1scores
+        ? rankingEntries.findIndex(([n])=>n===realName)+1
+        : rankingEntries.findIndex(([n])=>n===nickname)+1;
       p.finishes.push(finish);
       p.weekFinish[weekKey] = finish;
       if (p.best===null||finish<p.best) p.best=finish;
-      if (voteTotal===topScore) p.wins++;
+      if (sp===topScore && topScore>0) p.wins++;
     });
   });
   Object.values(players).forEach(p => {
