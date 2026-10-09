@@ -1875,7 +1875,9 @@ function AnalysisView({ drafts, onBack }) {
       p.finishes.push(finish);
       p.weekFinish[weekKey] = finish;
       if (p.best===null||finish<p.best) p.best=finish;
-      if (sp===topScore && topScore>0) p.wins++;
+      // S1: win = highest season points; S2+: win = highest vote total
+      const winScore = s1scores ? sp : (totals[nickname] ?? 0);
+      if (winScore===topScore && topScore>0) p.wins++;
     });
   });
   Object.values(players).forEach(p => {
