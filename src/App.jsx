@@ -387,6 +387,7 @@ export default function App() {
             setActiveDraft(draftData);
             setVoteState({ voterName:"", rankings:{}, submitted:false, voters: Object.keys(draftData.votes||{}) });
             setView("vote");
+            window.history.replaceState({}, "", window.location.pathname);
           }
         }
       }
@@ -1534,14 +1535,13 @@ function LeaderboardView({ drafts, onBack }) {
       <h1 style={styles.pageTitle}>Leaderboard</h1>
 
       {/* Season selector */}
-      <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-        {availSeasons.map(s => (
-          <button key={s}
-            style={{ ...styles.btnSmall, background:season===s?P.navy:P.white, color:season===s?P.white:P.navy }}
-            onClick={()=>setSeason(s)}>
-            Season {s}
-          </button>
-        ))}
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20 }}>
+        <select
+          style={{ ...styles.input, marginBottom:0, width:"auto", minWidth:130, borderRadius:8, fontSize:14 }}
+          value={season}
+          onChange={e=>setSeason(+e.target.value)}>
+          {availSeasons.map(s=><option key={s} value={s}>Season {s}</option>)}
+        </select>
       </div>
 
       {/* Tab selector */}
@@ -1675,14 +1675,13 @@ function HistoryView({ drafts, onView, onVote, onDelete, onBack }) {
   return (
     <div style={styles.page}>
       <h1 style={styles.pageTitle}>Draft History</h1>
-      <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
-        {seasons.map(s => (
-          <button key={s}
-            style={{ ...styles.btnSmall, background:+activeSeason===+s?P.navy:P.white, color:+activeSeason===+s?P.white:P.navy }}
-            onClick={()=>setSelectedSeason(+s)}>
-            Season {s}
-          </button>
-        ))}
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20 }}>
+        <select
+          style={{ ...styles.input, marginBottom:0, width:"auto", minWidth:130, borderRadius:8, fontSize:14 }}
+          value={activeSeason}
+          onChange={e=>setSelectedSeason(+e.target.value)}>
+          {seasons.map(s=><option key={s} value={s}>Season {s}</option>)}
+        </select>
       </div>
       {filtered.length === 0 && <div style={{ color:"#aaa", textAlign:"center", padding:32 }}>No drafts found for this season.</div>}
       {filtered.map((d,i) => {
@@ -1808,19 +1807,25 @@ function resolveToRealName(nickname, drafterDetails) {
 
 function AnalysisView({ drafts, onBack }) {
   const seasons = [...new Set(drafts.filter(d=>d.status==="voted").map(d=>+d.season))].sort((a,b)=>a-b);
-  const [season, setSeason] = useState(seasons[seasons.length-1] ?? "all");
-  const [tag, setTag] = useState("all");
-  const [drafter, setDrafter] = useState("all");
-  const [company, setCompany] = useState("all");
+  const [selSeasons, setSelSeasons] = useState([]);
+  const [selTags, setSelTags] = useState([]);
+  const [selDrafters, setSelDrafters] = useState([]);
+  const [selCompanies, setSelCompanies] = useState([]);
+  const [sortCol, setSortCol] = useState("seasonPts");
+  const [sortAsc, setSortAsc] = useState(false);
 
   const availTags = [...new Set(drafts.filter(d=>d.status==="voted"&&d.tag).map(d=>d.tag))].sort();
   const availCompanies = [...new Set(drafts.filter(d=>d.status==="voted"&&d.company).map(d=>d.company))].sort();
 
+  function onMultiChange(e, setArr) {
+    setArr(Array.from(e.target.selectedOptions, o => o.value));
+  }
+
   const voted = drafts.filter(d =>
     d.status==="voted" &&
-    (season==="all" || +d.season===+season) &&
-    (tag==="all" || d.tag===tag) &&
-    (company==="all" || d.company===company)
+    (selSeasons.length===0 || selSeasons.map(Number).includes(+d.season)) &&
+    (selTags.length===0 || selTags.includes(d.tag)) &&
+    (selCompanies.length===0 || selCompanies.includes(d.company))
   ).sort((a,b)=>a.season!==b.season?a.season-b.season:a.week-b.week);
 
   const players = {};
@@ -1832,11 +1837,11 @@ function AnalysisView({ drafts, onBack }) {
     const weekKey = `S${draft.season}W${draft.week}`;
     draft.drafters.forEach(nickname => {
       const realName = resolveToRealName(nickname, draft.drafterDetails);
-      if (drafter!=="all" && realName!==drafter) return;
+      if (selDrafters.length>0 && !selDrafters.includes(realName)) return;
       if (!players[realName]) players[realName] = { drafts:0, wins:0, seasonPts:0, best:null, finishes:[], weekPts:{}, weekFinish:{} };
       const p = players[realName];
       p.drafts++;
-      const sp = pts[nickname]||0;
+      const sp = pts[nickname] ?? pts[realName] ?? 0;
       p.seasonPts += sp;
       p.weekPts[weekKey] = (p.weekPts[weekKey]||0)+sp;
       const voteTotal = totals[nickname]||0;
@@ -1852,8 +1857,17 @@ function AnalysisView({ drafts, onBack }) {
     p.winRate = p.drafts ? Math.round((p.wins/p.drafts)*100) : 0;
   });
 
-  const data = Object.entries(players).sort((a,b)=>b[1].seasonPts-a[1].seasonPts);
-  const allPlayers = [...new Set(data.map(([n])=>n))].sort();
+  const allPlayers = [...new Set(Object.keys(players))].sort();
+  function handleSort(col) {
+    if (sortCol===col) setSortAsc(a=>!a);
+    else { setSortCol(col); setSortAsc(false); }
+  }
+  const colMap = { player:([n])=>n, drafts:([,s])=>s.drafts, wins:([,s])=>s.wins, winRate:([,s])=>s.winRate, seasonPts:([,s])=>s.seasonPts, avgFinish:([,s])=>s.avgFinish, best:([,s])=>s.best??99 };
+  const data = Object.entries(players).sort((a,b)=>{
+    const va=colMap[sortCol]?.(a)??0, vb=colMap[sortCol]?.(b)??0;
+    const cmp = typeof va==="string" ? va.localeCompare(vb) : va-vb;
+    return sortAsc ? cmp : -cmp;
+  });
   const sortedWeeks = [...new Set(voted.map(d=>`S${d.season}W${d.week}`))];
   const COLORS_LINE = [P.red,P.navy,P.amber,P.steel,"#8E44AD","#27AE60","#E67E22","#16A085","#C0392B","#2980B9"];
 
@@ -2047,24 +2061,28 @@ function AnalysisView({ drafts, onBack }) {
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <span style={{ fontSize:16 }}>▼</span>
             <span style={{ fontWeight:700, fontSize:15, color:P.navy }}>Filters</span>
+            <span style={{ fontSize:11, color:"#aaa" }}>(Ctrl/Cmd for multiple)</span>
           </div>
-          {(season!=="all"||tag!=="all"||drafter!=="all"||company!=="all") && (
+          {(selSeasons.length>0||selTags.length>0||selDrafters.length>0||selCompanies.length>0) && (
             <button style={{ ...styles.btnSmall, fontSize:11, padding:"4px 12px", color:"#888", borderColor:"#ddd" }}
-              onClick={()=>{ setSeason(seasons[seasons.length-1]??"all"); setTag("all"); setDrafter("all"); setCompany("all"); }}>
+              onClick={()=>{ setSelSeasons([]); setSelTags([]); setSelDrafters([]); setSelCompanies([]); }}>
               Reset filters
             </button>
           )}
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:16 }}>
           {[
-            { label:"Season", value:season, setter:setSeason, opts:[{v:"all",l:"All"},...seasons.map(s=>({v:s,l:`Season ${s}`}))] },
-            { label:"Tag", value:tag, setter:setTag, opts:[{v:"all",l:"All"},...availTags.map(t=>({v:t,l:t}))] },
-            { label:"Company", value:company, setter:setCompany, opts:[{v:"all",l:"All"},...availCompanies.map(c=>({v:c,l:c}))] },
-            { label:"Drafter", value:drafter, setter:setDrafter, opts:[{v:"all",l:"All"},...allPlayers.map(p=>({v:p,l:p}))] },
+            { label:"Season", sel:selSeasons, setSel:setSelSeasons, opts:seasons.map(s=>({v:String(s),l:`Season ${s}`})) },
+            { label:"Tag", sel:selTags, setSel:setSelTags, opts:availTags.map(t=>({v:t,l:t})) },
+            { label:"Company", sel:selCompanies, setSel:setSelCompanies, opts:availCompanies.map(c=>({v:c,l:c})) },
+            { label:"Drafter", sel:selDrafters, setSel:setSelDrafters, opts:allPlayers.map(p=>({v:p,l:p})) },
           ].map(f=>(
             <div key={f.label}>
-              <label style={{ ...styles.label, marginBottom:6 }}>{f.label}</label>
-              <select style={{ ...styles.input, marginBottom:0, width:"100%", borderRadius:8 }} value={f.value} onChange={e=>f.setter(e.target.value)}>
+              <label style={{ ...styles.label, marginBottom:6 }}>{f.label}{f.sel.length>0&&<span style={{ color:P.red,fontWeight:700 }}> ({f.sel.length})</span>}</label>
+              <select multiple
+                style={{ ...styles.input, marginBottom:0, width:"100%", borderRadius:8, height:88, padding:"4px 8px", fontSize:12 }}
+                value={f.sel}
+                onChange={e=>onMultiChange(e, f.setSel)}>
                 {f.opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
               </select>
             </div>
@@ -2122,13 +2140,22 @@ function AnalysisView({ drafts, onBack }) {
           <div style={{ overflowX:"auto" }}>
             <table style={{ width:"100%",borderCollapse:"collapse",fontSize:12 }}>
               <thead><tr>
-                <th style={styles.th}>Player</th>
-                <th style={{ ...styles.th,textAlign:"center" }}>Drafts</th>
-                <th style={{ ...styles.th,textAlign:"center" }}>Wins</th>
-                <th style={{ ...styles.th,textAlign:"center" }}>Win %</th>
-                <th style={{ ...styles.th,textAlign:"center" }}>Season Pts</th>
-                <th style={{ ...styles.th,textAlign:"center" }}>Avg Finish</th>
-                <th style={{ ...styles.th,textAlign:"center" }}>Best</th>
+                {[
+                  {col:"player",label:"Player",align:"left"},
+                  {col:"drafts",label:"Drafts",align:"center"},
+                  {col:"wins",label:"Wins",align:"center"},
+                  {col:"winRate",label:"Win %",align:"center"},
+                  {col:"seasonPts",label:"Season Pts",align:"center"},
+                  {col:"avgFinish",label:"Avg Finish",align:"center"},
+                  {col:"best",label:"Best",align:"center"},
+                ].map(({col,label,align})=>(
+                  <th key={col} onClick={()=>handleSort(col)}
+                    style={{ ...styles.th, textAlign:align, cursor:"pointer", userSelect:"none",
+                      color:sortCol===col?P.navy:"#aaa",
+                      background:sortCol===col?"#f0ede9":"transparent" }}>
+                    {label} {sortCol===col?(sortAsc?"▲":"▼"):"⇅"}
+                  </th>
+                ))}
               </tr></thead>
               <tbody>
                 {data.map(([name,s])=>(
