@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -1537,7 +1537,7 @@ function LeaderboardView({ drafts, onBack }) {
       {/* Season selector */}
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20 }}>
         <select
-          style={{ ...styles.input, marginBottom:0, width:"auto", minWidth:130, borderRadius:8, fontSize:14 }}
+          style={{ ...styles.input, marginBottom:0, width:"auto", minWidth:130, borderRadius:8, fontSize:14, background:P.navy, color:P.white, fontWeight:700, cursor:"pointer" }}
           value={season}
           onChange={e=>setSeason(+e.target.value)}>
           {availSeasons.map(s=><option key={s} value={s}>Season {s}</option>)}
@@ -1677,7 +1677,7 @@ function HistoryView({ drafts, onView, onVote, onDelete, onBack }) {
       <h1 style={styles.pageTitle}>Draft History</h1>
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20 }}>
         <select
-          style={{ ...styles.input, marginBottom:0, width:"auto", minWidth:130, borderRadius:8, fontSize:14 }}
+          style={{ ...styles.input, marginBottom:0, width:"auto", minWidth:130, borderRadius:8, fontSize:14, background:P.navy, color:P.white, fontWeight:700, cursor:"pointer" }}
           value={activeSeason}
           onChange={e=>setSelectedSeason(+e.target.value)}>
           {seasons.map(s=><option key={s} value={s}>Season {s}</option>)}
@@ -1798,6 +1798,91 @@ const styles = {
 };
 
 
+// ─── CHECKBOX DROPDOWN ────────────────────────────────────────────────────────
+function CheckboxDropdown({ label, options, selected, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  function toggle(val) {
+    if (selected.includes(val)) onChange(selected.filter(v => v !== val));
+    else onChange([...selected, val]);
+  }
+
+  function toggleAll() {
+    if (selected.length === options.length) onChange([]);
+    else onChange(options.map(o => o.v));
+  }
+
+  const allSelected = options.length > 0 && selected.length === options.length;
+  const someSelected = selected.length > 0 && selected.length < options.length;
+
+  return (
+    <div ref={ref} style={{ position:"relative", userSelect:"none" }}>
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+          border:`1px solid ${P.warmGrey}`, borderRadius:8, padding:"8px 12px",
+          background:P.white, cursor:"pointer", fontSize:13, color:P.navy,
+          minHeight:38, gap:8
+        }}>
+        <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", color: selected.length ? P.navy : "#aaa" }}>
+          {selected.length === 0 ? `All ${label}s` : selected.length === 1 ? selected[0] : `${selected.length} selected`}
+        </span>
+        <span style={{ color:P.navy, fontSize:10, flexShrink:0 }}>{open ? "▲" : "▼"}</span>
+      </div>
+      {open && (
+        <div style={{
+          position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:200,
+          background:P.white, border:`1px solid ${P.warmGrey}`, borderRadius:8,
+          boxShadow:"0 4px 16px rgba(0,0,0,0.12)", maxHeight:220, overflowY:"auto"
+        }}>
+          {/* Select all */}
+          <div
+            onClick={toggleAll}
+            style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", cursor:"pointer", borderBottom:`1px solid ${P.warmGrey}`, background:"#fafaf8" }}>
+            <div style={{
+              width:16, height:16, borderRadius:3, border:`2px solid ${P.navy}`,
+              background: allSelected ? P.navy : someSelected ? P.steel : "transparent",
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0
+            }}>
+              {allSelected && <span style={{ color:"#fff", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>}
+              {someSelected && <span style={{ color:"#fff", fontSize:10, fontWeight:900, lineHeight:1 }}>—</span>}
+            </div>
+            <span style={{ fontSize:13, fontWeight:700, color:P.navy }}>Select all</span>
+          </div>
+          {options.map(o => {
+            const checked = selected.includes(o.v);
+            return (
+              <div
+                key={o.v}
+                onClick={() => toggle(o.v)}
+                style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", cursor:"pointer", background: checked ? "#f0f4ff" : "transparent" }}>
+                <div style={{
+                  width:16, height:16, borderRadius:3, border:`2px solid ${checked ? P.navy : P.warmGrey}`,
+                  background: checked ? P.navy : "transparent",
+                  display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0
+                }}>
+                  {checked && <span style={{ color:"#fff", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>}
+                </div>
+                <span style={{ fontSize:13, color:P.navy }}>{o.l}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── ANALYSIS ─────────────────────────────────────────────────────────────────
 
 function resolveToRealName(nickname, drafterDetails) {
@@ -1816,10 +1901,6 @@ function AnalysisView({ drafts, onBack }) {
 
   const availTags = [...new Set(drafts.filter(d=>d.status==="voted"&&d.tag).map(d=>d.tag))].sort();
   const availCompanies = [...new Set(drafts.filter(d=>d.status==="voted"&&d.company).map(d=>d.company))].sort();
-
-  function onMultiChange(e, setArr) {
-    setArr(Array.from(e.target.selectedOptions, o => o.value));
-  }
 
   const voted = drafts.filter(d =>
     d.status==="voted" &&
@@ -2089,7 +2170,7 @@ function AnalysisView({ drafts, onBack }) {
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <span style={{ fontSize:16 }}>▼</span>
             <span style={{ fontWeight:700, fontSize:15, color:P.navy }}>Filters</span>
-            <span style={{ fontSize:11, color:"#aaa" }}>(Ctrl/Cmd for multiple)</span>
+            <span style={{ fontSize:11, color:"#aaa" }}>(click to filter)</span>
           </div>
           {(selSeasons.length>0||selTags.length>0||selDrafters.length>0||selCompanies.length>0) && (
             <button style={{ ...styles.btnSmall, fontSize:11, padding:"4px 12px", color:"#888", borderColor:"#ddd" }}
@@ -2107,12 +2188,12 @@ function AnalysisView({ drafts, onBack }) {
           ].map(f=>(
             <div key={f.label}>
               <label style={{ ...styles.label, marginBottom:6 }}>{f.label}{f.sel.length>0&&<span style={{ color:P.red,fontWeight:700 }}> ({f.sel.length})</span>}</label>
-              <select multiple
-                style={{ ...styles.input, marginBottom:0, width:"100%", borderRadius:8, height:88, padding:"4px 8px", fontSize:12 }}
-                value={f.sel}
-                onChange={e=>onMultiChange(e, f.setSel)}>
-                {f.opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
-              </select>
+              <CheckboxDropdown
+                label={f.label}
+                options={f.opts}
+                selected={f.sel}
+                onChange={f.setSel}
+              />
             </div>
           ))}
         </div>
